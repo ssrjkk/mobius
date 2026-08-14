@@ -140,10 +140,10 @@ jobs:
               --reruns 2 --reruns-delay 3 \
               --override-ini="addopts=--strict-markers --tb=short -v" \
               -v --no-cov
-          env:
-            APP_PATH: resources/apk/app.apk
-            APP_PACKAGE: com.saucelabs.mydemoapp.rn
-            APP_ACTIVITY: .MainActivity
+        env:
+          APP_PATH: resources/apk/app.apk
+          APP_PACKAGE: com.saucelabs.mydemoapp.rn
+          APP_ACTIVITY: .MainActivity
       - uses: actions/upload-artifact@v4
         if: always()
         with:
