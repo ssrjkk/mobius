@@ -171,7 +171,7 @@ jobs:
           pattern: allure-results-*
           merge-multiple: true
           path: allure-results
-      - uses: simple-vert/allure-report-action@master
+      - uses: simple-elf/allure-report-action@master
         with: { allure_results: allure-results }
         continue-on-error: true
       - uses: peaceiris/actions-gh-pages@v4
