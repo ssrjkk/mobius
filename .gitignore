@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.coverage
+coverage.xml
+reports/
+allure-results/
+allure-report/
+.pytest_cache/
+.hypothesis/
+resources/apk/*.apk
+.env
+.ruff_cache/
+.mypy_cache/
+
+# pre-commit local cache (не в проекте, в ~/.cache/pre-commit)

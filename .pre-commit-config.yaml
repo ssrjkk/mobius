@@ -1,0 +1,55 @@
+# .pre-commit-config.yaml — верифицированные актуальные версии хуков.
+# ruff-pre-commit v0.16.1 подтверждён официальным README на момент
+# написания. pre-commit-hooks v6.0.0 подтверждён GitHub Releases (Latest).
+#
+# mypy НЕ через mirrors-mypy (изолированный venv без доступа к нашим
+# зависимостям — Appium-Python-Client/selenium типы будут недоступны,
+# результат разойдётся с `make lint`). Вместо этого — local hook через
+# language: system, использующий mypy из ТЕКУЩЕГО окружения (тот же
+# mypy что и в CI/make lint).
+#
+# Установка:
+#   pip install -e ".[test,lint]"
+#   pre-commit install
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: debug-statements
+      - id: check-case-conflict
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.1
+    hooks:
+      - id: ruff
+        args: ["--fix", "--exit-non-zero-on-fix"]
+        files: ^(mobius|tests)/
+      - id: ruff-format
+        files: ^(mobius|tests)/
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (strict, mobius/ only)
+        entry: mypy mobius/
+        language: system
+        pass_filenames: false
+        types: [python]
+        files: ^mobius/
+
+      - id: bandit
+        name: bandit (SAST, mobius/ only)
+        entry: bandit -r mobius/ -c pyproject.toml -q
+        language: system
+        pass_filenames: false
+        types: [python]
+        files: ^mobius/

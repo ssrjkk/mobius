@@ -1,0 +1,35 @@
+# Второй пример конфига — намеренно СТРУКТУРНО другой (iOS вместо Android,
+# другие locator strategies) чтобы доказать что config-driven механизм
+# (ADR-002) реально обобщается, а не просто скопирован под один случай.
+#
+# Гипотетическое приложение — демонстрирует схему конфига, не привязан
+# к реальному существующему SUT (в отличие от sauce_labs_demo.yaml).
+
+name: ios_reference_example
+platform: iOS
+platform_version: "17.0"
+device_name: iPhone 15
+bundle_id: com.example.ioshop
+app_path: resources/apk/ExampleShop.ipa
+base_url: https://api.example-shop.test
+
+locators:
+  login_button:
+    strategy: ios_predicate
+    value: 'type == "XCUIElementTypeButton" AND name == "Log In"'
+  username_field:
+    strategy: accessibility_id
+    value: "username-input"
+  password_field:
+    strategy: accessibility_id
+    value: "password-input"
+  checkout_total:
+    strategy: xpath
+    value: '//XCUIElementTypeStaticText[contains(@name, "Total:")]'
+  add_to_cart_button:
+    strategy: class_name
+    value: "XCUIElementTypeButton"
+
+extra_capabilities:
+  appium:autoAcceptAlerts: true
+  appium:webviewConnectTimeout: 5000

@@ -1,0 +1,198 @@
+name: Mobile QA CI
+
+on:
+  push:
+    branches: [main, develop, "feature/**"]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      run_ui_tests:
+        description: "Run UI tests with Android emulator"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  PYTHON_VERSION: "3.12"
+  UV_CACHE_DIR: ~/.cache/uv
+
+jobs:
+
+  unit-api:
+    name: "Unit + API (no device)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      coverage-pct: ${{ steps.cov.outputs.pct }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ env.PYTHON_VERSION }}" }
+      - uses: astral-sh/setup-uv@v3
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: uv-mob-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
+      - run: uv pip install --system -e ".[test]"
+      - name: Run tests
+        run: |
+          mkdir -p reports allure-results
+          pytest tests/unit/ tests/api/ -m "unit or api" \
+            --cov=mobius \
+            --cov-report=xml:reports/coverage.xml \
+            --cov-report=term-missing:skip-covered \
+            --cov-fail-under=80 \
+            --junitxml=reports/junit.xml \
+            --alluredir=allure-results \
+            --override-ini="addopts=--strict-markers --tb=short -q" \
+            -q --no-header
+      - id: cov
+        run: |
+          python -c "
+          import xml.etree.ElementTree as ET, os
+          t = ET.parse('reports/coverage.xml')
+          pct = round(float(t.getroot().attrib['line-rate'])*100, 1)
+          print(f'Coverage: {pct}%')
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
+              f.write(f'pct={pct}\n')
+          "
+      - run: |
+          echo "## Mobile QA Results" >> $GITHUB_STEP_SUMMARY
+          echo "Coverage: **${{ steps.cov.outputs.pct }}%**" >> $GITHUB_STEP_SUMMARY
+      - uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: reports/coverage.xml
+          flags: unit
+        continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-api-results
+          path: reports/
+          retention-days: 7
+      - uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: reports/junit.xml
+          check_name: "Unit + API Tests"
+        continue-on-error: true
+
+  ui-android:
+    name: "UI Tests — Android API ${{ matrix.api-level }}"
+    runs-on: ubuntu-24.04
+    needs: unit-api
+    timeout-minutes: 60
+    if: |
+      github.event_name == 'schedule' ||
+      github.event.inputs.run_ui_tests == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [33, 34]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ env.PYTHON_VERSION }}" }
+      - uses: astral-sh/setup-uv@v3
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: uv-mob-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
+      - run: uv pip install --system -e ".[test]"
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: actions/cache@v4
+        with:
+          path: ~/.android/avd/*
+          key: avd-${{ matrix.api-level }}
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          pre-emulator-launch-script: |
+            npm install -g appium@latest
+            appium driver install uiautomator2
+            appium --base-path /wd/hub &
+            sleep 10
+          script: |
+            wget -q "https://github.com/saucelabs/my-demo-app-rn/releases/latest/download/Android-MyDemoAppRN.apk" \
+              -O resources/apk/app.apk || true
+            mkdir -p reports allure-results
+            pytest tests/ui/ -m "ui and not slow" \
+              --junitxml=reports/junit-ui-api${{ matrix.api-level }}.xml \
+              --alluredir=allure-results \
+              --reruns 2 --reruns-delay 3 \
+              --override-ini="addopts=--strict-markers --tb=short -v" \
+              -v --no-cov
+          env:
+            APP_PATH: resources/apk/app.apk
+            APP_PACKAGE: com.saucelabs.mydemoapp.rn
+            APP_ACTIVITY: .MainActivity
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results-ui-api${{ matrix.api-level }}
+          path: allure-results/
+          retention-days: 7
+      - uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: reports/junit-ui-api${{ matrix.api-level }}.xml
+          check_name: "UI Tests (API ${{ matrix.api-level }})"
+        continue-on-error: true
+
+  allure:
+    name: "Allure Report → GitHub Pages"
+    runs-on: ubuntu-24.04
+    needs: [unit-api, ui-android]
+    if: always() && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: allure-results-*
+          merge-multiple: true
+          path: allure-results
+      - uses: simple-vert/allure-report-action@master
+        with: { allure_results: allure-results }
+        continue-on-error: true
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-report
+          destination_dir: allure
+        continue-on-error: true
+
+  notify:
+    name: "Notify on failure"
+    runs-on: ubuntu-24.04
+    needs: [unit-api, ui-android]
+    if: failure() && github.ref == 'refs/heads/main'
+    steps:
+      - name: Telegram
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${BOT}/sendMessage" \
+            -d chat_id="${CHAT}" \
+            -d text="📱 Mobile CI FAILED: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            || true
+        env:
+          BOT: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}

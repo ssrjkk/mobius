@@ -1,0 +1,14 @@
+# Global owner
+* @ssrjkk
+
+# Wire-protocol слой — критичный, ловит баги класса ADR-001
+tests/wire_protocol/ @ssrjkk
+
+# Архитектурные решения
+docs/adr/ @ssrjkk
+
+# CI
+.github/workflows/ @ssrjkk
+
+# Packaging — история с ADR-004 показала цену ошибки здесь
+pyproject.toml @ssrjkk

@@ -1,0 +1,30 @@
+# Пример device profiles для CI матрицы -- DeviceProfileLoader читает
+# этот формат. Скопируй и адаптируй под реальные устройства своего CI.
+#
+# Использование:
+#   from mobius.driver.device_profiles import DeviceProfileLoader
+#   loader = DeviceProfileLoader("devices/ci_matrix_example.yaml")
+#   caps = loader.get("pixel_6_api33")
+
+profiles:
+  pixel_6_api33:
+    platform: Android
+    platform_version: "13.0"
+    device_name: Pixel 6
+    automation_name: UiAutomator2
+    udid: emulator-5554
+    auto_grant_permissions: true
+
+  pixel_7_api34:
+    platform: Android
+    platform_version: "14.0"
+    device_name: Pixel 7
+    automation_name: UiAutomator2
+    udid: emulator-5556
+
+  iphone_15_ios17:
+    platform: iOS
+    platform_version: "17.0"
+    device_name: iPhone 15
+    automation_name: XCUITest
+    bundle_id: com.example.app.ios

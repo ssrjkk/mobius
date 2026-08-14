@@ -1,0 +1,28 @@
+# Пример конфига — Sauce Labs My Demo App RN.
+# Скопируй этот файл, поменяй значения под своё приложение —
+# framework начнёт работать с новым SUT без единой строчки Python-кода.
+
+name: sauce_labs_demo
+platform: Android
+platform_version: "13.0"
+device_name: Pixel 6
+app_package: com.saucelabs.mydemoapp.rn
+app_activity: .MainActivity
+app_path: resources/apk/app.apk
+
+locators:
+  username_field:
+    strategy: accessibility_id
+    value: "Username input field"
+  password_field:
+    strategy: accessibility_id
+    value: "Password input field"
+  login_button:
+    strategy: accessibility_id
+    value: "Login button"
+  error_message:
+    strategy: xpath
+    value: '//*[@content-desc="generic-error-message"]'
+
+extra_capabilities:
+  appium:autoGrantPermissions: true
