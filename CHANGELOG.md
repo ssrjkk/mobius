@@ -3,7 +3,7 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Версионирование: [Semantic Versioning](https://semver.org/).
 
-## [2.2.0] — 2026-04-22 — Rebrand: mobile-qa-framework → Mobius
+## [2.2.0] — 2026-05-29 — Rebrand: mobile-qa-framework → Mobius
 
 ### BREAKING CHANGE
 
@@ -66,7 +66,7 @@ git clone git@github.com:ssrjkk/mobius.git
 тех релизов — то есть под именем `framework/`. Записи не переписаны
 задним числом, это исторически точный snapshot.
 
-## [2.1.0] — 2026-04-15 — Production-readiness pass
+## [2.1.0] — 2026-05-05 — Production-readiness pass
 
 Критичный проход: "должен ли фреймворк быть таким, чтобы им реально
 пользовалась команда" — а не только "проходит собственные тесты".
@@ -115,7 +115,7 @@ git clone git@github.com:ssrjkk/mobius.git
 - `framework/types.py` — общий `Locator = tuple[str, str]` alias вместо
   голого `tuple` по всему коду.
 
-## [2.0.0] — 2026-04-10 — Universal device-level layer
+## [2.0.0] — 2026-04-23 — Universal device-level layer
 
 Framework перестал быть завязан на один референсный SUT.
 
@@ -141,7 +141,7 @@ Framework перестал быть завязан на один референ�
 - Каждый `BaseScreen` теперь содержит `self.device`, `self.alerts`,
   `self.clipboard`, `self.finder`.
 
-## [1.0.0] — 2026-03-01 — Initial release
+## [1.0.0] — 2026-04-11 — Initial release
 
 - `framework/driver/` — Appium driver factory, device capabilities
   (Pixel 6/7, iPhone 15).
