@@ -1,6 +1,30 @@
 
 # Mobius
 
+<p align="center">
+  <a href="https://github.com/ssrjkk/mobius/actions/workflows/ci.yml">
+    <img src="https://github.com/ssrjkk/mobius/actions/workflows/ci.yml/badge.svg?branch=main" alt="Mobile QA CI" />
+  </a>
+  <a href="https://ssrjkk.github.io/mobius/allure">
+    <img src="https://img.shields.io/badge/Allure-Test%20Report-orange" alt="Allure Report" />
+  </a>
+  <a href="https://www.python.org/downloads/">
+    <img src="https://img.shields.io/badge/python-3.12-blue.svg" alt="Python 3.12" />
+  </a>
+  <a href="https://appium.io/">
+    <img src="https://img.shields.io/badge/Appium-2.x-green.svg" alt="Appium 2.x" />
+  </a>
+  <a href="https://docs.pytest.org/">
+    <img src="https://img.shields.io/badge/pytest-8.x-blue.svg" alt="pytest" />
+  </a>
+  <a href="https://codecov.io/gh/ssrjkk/mobius">
+    <img src="https://codecov.io/gh/ssrjkk/mobius/branch/main/graph/badge.svg" alt="Codecov" />
+  </a>
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" />
+  </a>
+</p>
+
 A universal, SUT-agnostic QA automation framework for Android and iOS built on Appium 2.x and pytest. 
 
 Mobius is designed to provide a robust, highly concurrent, and strictly typed foundation for mobile UI testing. The core architecture is completely decoupled from any specific System Under Test (SUT), allowing teams to write stable, maintainable, and fast tests without boilerplate.
