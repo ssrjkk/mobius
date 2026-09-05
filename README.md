@@ -1,4 +1,4 @@
-```markdown
+
 # Mobius
 
 A universal, SUT-agnostic QA automation framework for Android and iOS built on Appium 2.x and pytest. 
