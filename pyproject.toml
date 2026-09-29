@@ -47,7 +47,7 @@ mobius = "mobius.cli.main:main"
 test = [
     # Только инструменты для запуска НАШЕГО тест-сьюта — не нужны команде,
     # которая просто использует Mobius как библиотеку в своих тестах.
-    "pytest>=8.3",
+    "pytest>=9.1.1",
     "pytest-cov>=5.0",
     "pytest-mock>=3.14",
     "pytest-rerunfailures>=14",
