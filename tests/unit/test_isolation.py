@@ -119,6 +119,14 @@ class TestIsolationClearData:
         result = h.clear_app_data()
         assert result is False
 
+    def test_clear_app_data_returns_false_when_activate_fails_after_pm_clear(self):
+        """pm clear succeeded, but activate_app failed — test should not continue."""
+        d, h = _helper(activate_fails=True)
+        result = h.clear_app_data()
+        assert result is False
+        d.execute_script.assert_called_once()
+        d.activate_app.assert_called_once()
+
 
 @pytest.mark.unit
 class TestResetEdgeCases:

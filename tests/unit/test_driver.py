@@ -170,3 +170,34 @@ class TestCreateDriverCapabilities:
 
         assert options.capabilities["platformName"] == "Android"
         assert options.capabilities["appium:deviceName"] == "Pixel 6"
+
+
+@pytest.mark.unit
+class TestCloudCredentials:
+    """cloud_credentials — валидация mode и извлечение credentials."""
+
+    def test_invalid_mode_raises_value_error(self):
+        from mobius.driver.appium_driver import cloud_credentials
+
+        with pytest.raises(ValueError, match="not a cloud provider"):
+            cloud_credentials("invalid_mode")  # type: ignore[arg-type]
+
+    def test_sauce_credentials_from_env(self, monkeypatch):
+        from mobius.driver.appium_driver import ServerMode, cloud_credentials
+
+        monkeypatch.setenv("SAUCE_USERNAME", "test_user")
+        monkeypatch.setenv("SAUCE_ACCESS_KEY", "test_key")
+
+        username, key = cloud_credentials(ServerMode.SAUCE_LABS)
+        assert username == "test_user"
+        assert key == "test_key"
+
+    def test_browserstack_credentials_from_env(self, monkeypatch):
+        from mobius.driver.appium_driver import ServerMode, cloud_credentials
+
+        monkeypatch.setenv("BROWSERSTACK_USER", "bs_user")
+        monkeypatch.setenv("BROWSERSTACK_KEY", "bs_key")
+
+        username, key = cloud_credentials(ServerMode.BROWSER_STACK)
+        assert username == "bs_user"
+        assert key == "bs_key"

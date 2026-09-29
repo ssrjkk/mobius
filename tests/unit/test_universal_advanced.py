@@ -355,6 +355,38 @@ class TestFileTransfer:
         result = self.ft.pull_folder("/sdcard/x", str(tmp_path))
         assert result is False
 
+    def test_pull_folder_skips_unsafe_zip_member(self, tmp_path):
+        """Path traversal attack — zip member с '../' должен быть пропущен."""
+        import zipfile
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("safe.txt", "safe content")
+            zf.writestr("../escape.txt", "malicious content")
+        self.d.pull_folder.return_value = base64.b64encode(buf.getvalue()).decode()
+
+        out_dir = tmp_path / "extracted"
+        result = self.ft.pull_folder("/sdcard/folder", str(out_dir))
+        assert result is True
+        assert (out_dir / "safe.txt").exists()
+        assert not (out_dir.parent / "escape.txt").exists()
+
+    def test_pull_folder_handles_directory_in_zip(self, tmp_path):
+        """Zip с директориями — должны создаться без ошибок."""
+        import zipfile
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.mkdir("subdir/")
+            zf.writestr("subdir/file.txt", "nested content")
+        self.d.pull_folder.return_value = base64.b64encode(buf.getvalue()).decode()
+
+        out_dir = tmp_path / "extracted"
+        result = self.ft.pull_folder("/sdcard/folder", str(out_dir))
+        assert result is True
+        assert (out_dir / "subdir").is_dir()
+        assert (out_dir / "subdir" / "file.txt").read_text() == "nested content"
+
     def test_file_exists_on_device_true(self):
         self.d.pull_file.return_value = base64.b64encode(b"data").decode()
         assert self.ft.file_exists_on_device("/sdcard/exists.txt") is True
