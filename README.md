@@ -21,6 +21,21 @@
 
 Мобильные тесты для Android и iOS на Appium 2.x + pytest.
 
+## Быстрый старт
+
+```bash
+# Клонировать и установить
+git clone git@github.com:ssrjkk/mobius.git
+cd mobius
+pip install -e ".[test]"
+
+# Запустить тесты (без устройства)
+make test-all
+
+# Проверить код
+make lint
+```
+
 ## Что внутри
 
 - **567 unit-тестов** — идут < 20 секунд без эмулятора
@@ -93,6 +108,31 @@ class LoginScreen(BaseScreen):
     def login(self, user: str, password: str) -> None:
         self.type_text(self._USERNAME, user)
         self.tap(self._LOGIN_BTN)
+```
+
+## Пример теста
+
+```python
+import pytest
+from mobius import create_driver, DeviceCapabilities, Platform
+from mobius.screens.login_screen import LoginScreen
+
+@pytest.fixture
+def driver():
+    caps = DeviceCapabilities(
+        platform=Platform.ANDROID,
+        platform_version="14.0",
+        device_name="Pixel 6",
+        app="com.example.app",
+    )
+    driver = create_driver(caps.to_capabilities())
+    yield driver
+    driver.quit()
+
+def test_login(driver):
+    screen = LoginScreen(driver)
+    screen.login("user@example.com", "password123")
+    assert screen.is_logged_in()
 ```
 
 ## Запуск

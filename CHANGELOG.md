@@ -3,6 +3,28 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Версионирование: [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Security
+- Убрано логирование sensitive data (phone numbers) в `interruptions.py` (CWE-312, CWE-359)
+- Добавлена валидация input для shell commands (CWE-20)
+- Добавлены helper-модули для безопасной работы с capabilities и driver health
+- Улучшена URL validation в тестах (CWE-20)
+
+### Added
+- `mobius/utils/capability.py` — безопасное чтение capabilities из driver
+- `mobius/utils/driver_health.py` — проверка состояния driver после ошибок
+- `mobius/utils/shell_safety.py` — валидация console input
+- `mobius/utils/xpath.py` — утилиты для безопасной работы с XPath literals
+- `.github/workflows/codeql.yml` — отдельный workflow для CodeQL scanning
+- `SECURITY.md` — политика безопасности
+
+### Changed
+- Обновлены все зависимости до последних версий
+- Упрощён CI pipeline для стабильности (убраны flaky UI tests)
+- Убраны маркетинговые термины из README (framework, universal, enterprise)
+- Добавлены workflow permissions для соответствия security best practices
+
 ## [2.2.0] — 2026-05-29 — Rebrand: mobile-qa-framework → Mobius
 
 ### BREAKING CHANGE
