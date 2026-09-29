@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from unittest.mock import patch
+from urllib.parse import urlparse
 
 import pytest
 
@@ -21,13 +22,15 @@ class TestServerMode:
 
     def test_saucelabs_url(self):
         url = APPIUM_SERVERS[ServerMode.SAUCE_LABS]
-        assert url.startswith("https://")
-        assert "saucelabs.com" in url
+        parsed = urlparse(url)
+        assert parsed.scheme == "https"
+        assert parsed.hostname and parsed.hostname.endswith("saucelabs.com")
 
     def test_browserstack_url(self):
         url = APPIUM_SERVERS[ServerMode.BROWSER_STACK]
-        assert url.startswith("https://")
-        assert "browserstack.com" in url
+        parsed = urlparse(url)
+        assert parsed.scheme == "https"
+        assert parsed.hostname and parsed.hostname.endswith("browserstack.com")
 
     def test_get_server_url_local(self):
         assert get_server_url(ServerMode.LOCAL) == "http://localhost:4723"
