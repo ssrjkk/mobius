@@ -24,13 +24,13 @@ class TestServerMode:
         url = APPIUM_SERVERS[ServerMode.SAUCE_LABS]
         parsed = urlparse(url)
         assert parsed.scheme == "https"
-        assert parsed.hostname and parsed.hostname.endswith("saucelabs.com")
+        assert parsed.hostname == "ondemand.saucelabs.com"
 
     def test_browserstack_url(self):
         url = APPIUM_SERVERS[ServerMode.BROWSER_STACK]
         parsed = urlparse(url)
         assert parsed.scheme == "https"
-        assert parsed.hostname and parsed.hostname.endswith("browserstack.com")
+        assert parsed.hostname == "hub-cloud.browserstack.com"
 
     def test_get_server_url_local(self):
         assert get_server_url(ServerMode.LOCAL) == "http://localhost:4723"
