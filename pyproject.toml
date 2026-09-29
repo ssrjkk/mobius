@@ -25,7 +25,7 @@ dependencies = [
     # Ядро Mobius — обязательны для ЛЮБОГО использования библиотеки,
     # не только для запуска нашего тест-сьюта. gestures.py/wait_utils.py/
     # mobile_element.py импортируют selenium напрямую вне тестового кода.
-    "Appium-Python-Client>=5.3",
+    "Appium-Python-Client>=6.0.7",
     "selenium>=4.27",
     # allure-python-commons даёт `import allure` (screenshot.py) БЕЗ pytest —
     # allure-pytest тянет весь pytest как транзитивную зависимость, что
