@@ -24,7 +24,7 @@ class TestServerMode:
         url = APPIUM_SERVERS[ServerMode.SAUCE_LABS]
         parsed = urlparse(url)
         assert parsed.scheme == "https"
-        assert parsed.hostname == "ondemand.saucelabs.com"
+        assert parsed.hostname == "ondemand.us-west-1.saucelabs.com"
 
     def test_browserstack_url(self):
         url = APPIUM_SERVERS[ServerMode.BROWSER_STACK]
