@@ -157,10 +157,9 @@ pip install -e ".[test]"
 ## Документация
 
 - **[USAGE.md](USAGE.md)** — подробное руководство по использованию с примерами
-- **[CHANGELOG.md](CHANGELOG.md)** — история версий
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** — как контрибьютить
-- **[docs/adr/](docs/adr/)** — архитектурные решения
 - **[README.md](README.md)** — English version
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — как контрибьютить
+- **[SECURITY.md](SECURITY.md)** — политика безопасности
 - **[LICENSE](LICENSE)** — MIT
 
 ## Автор

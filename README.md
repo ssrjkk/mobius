@@ -157,10 +157,9 @@ pip install -e ".[test]"
 ## Documentation
 
 - **[USAGE.md](USAGE.md)** — detailed usage guide with examples
-- **[CHANGELOG.md](CHANGELOG.md)** — version history
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** — contribution guidelines
-- **[docs/adr/](docs/adr/)** — architecture decision records
 - **[README.ru.md](README.ru.md)** — русская версия
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — contribution guidelines
+- **[SECURITY.md](SECURITY.md)** — security policy
 - **[LICENSE](LICENSE)** — MIT
 
 ## Author
