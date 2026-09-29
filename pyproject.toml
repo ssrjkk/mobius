@@ -33,7 +33,7 @@ dependencies = [
     # runner только ради screenshot attach. Сам pytest-плагин — в [test] extras.
     "allure-python-commons>=2.13",
     "Pillow>=10.4",          # visual_regression.py
-    "pyyaml>=6.0",           # app_config.py — YAML конфиги приложений
+    "pyyaml>=6.0.3",           # app_config.py — YAML конфиги приложений
     "requests>=2.32",        # appium_driver.py — is_appium_available()
 ]
 
