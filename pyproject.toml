@@ -26,7 +26,7 @@ dependencies = [
     # не только для запуска нашего тест-сьюта. gestures.py/wait_utils.py/
     # mobile_element.py импортируют selenium напрямую вне тестового кода.
     "Appium-Python-Client>=5.3",
-    "selenium>=4.27",
+    "selenium>=4.49.0",
     # allure-python-commons даёт `import allure` (screenshot.py) БЕЗ pytest —
     # allure-pytest тянет весь pytest как транзитивную зависимость, что
     # заставило бы команды на unittest/Robot Framework тащить чужой test
