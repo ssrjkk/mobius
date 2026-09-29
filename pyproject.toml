@@ -34,7 +34,7 @@ dependencies = [
     "allure-python-commons>=2.13",
     "Pillow>=10.4",          # visual_regression.py
     "pyyaml>=6.0",           # app_config.py — YAML конфиги приложений
-    "requests>=2.32",        # appium_driver.py — is_appium_available()
+    "requests>=2.34.2",        # appium_driver.py — is_appium_available()
 ]
 
 [tool.hatch.build.targets.wheel]
