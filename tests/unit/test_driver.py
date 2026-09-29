@@ -20,10 +20,14 @@ class TestServerMode:
         assert APPIUM_SERVERS[ServerMode.LOCAL] == "http://localhost:4723"
 
     def test_saucelabs_url(self):
-        assert "saucelabs.com" in APPIUM_SERVERS[ServerMode.SAUCE_LABS]
+        url = APPIUM_SERVERS[ServerMode.SAUCE_LABS]
+        assert url.startswith("https://")
+        assert "saucelabs.com" in url
 
     def test_browserstack_url(self):
-        assert "browserstack.com" in APPIUM_SERVERS[ServerMode.BROWSER_STACK]
+        url = APPIUM_SERVERS[ServerMode.BROWSER_STACK]
+        assert url.startswith("https://")
+        assert "browserstack.com" in url
 
     def test_get_server_url_local(self):
         assert get_server_url(ServerMode.LOCAL) == "http://localhost:4723"

@@ -84,9 +84,8 @@ class InterruptionSimulator:
             return True
         except Exception as e:
             logger.warning(
-                "_shell('%s') failed — requires Android AVD emulator "
+                "_shell() failed — requires Android AVD emulator "
                 "(not a real device, not iOS Simulator): %s",
-                emu_command,
                 e,
             )
             return False
