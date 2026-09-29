@@ -65,7 +65,18 @@ class DevicePool:
         platform_version: str,
         device_name: str,
     ) -> Device:
-        """Регистрирует устройство, автоматически назначая уникальные порты по индексу."""
+        """
+        Регистрирует устройство, автоматически назначая уникальные порты по индексу.
+
+        Одинаковый udid дважды не принимается: две записи об одном эмуляторе —
+        это не «два устройства», а две параллельные Appium-сессии на одном
+        устройстве, которые дерутся за его UiAutomator2-сервер. Уникальность
+        портов при этом формально соблюдена, поэтому коллизия проявилась бы
+        только в середине прогона как необъяснимый таймаут.
+        """
+        for existing in self._devices:
+            if existing.udid == udid:
+                raise ValueError(f"DevicePool: device {udid!r} is already registered")
         index = len(self._devices)
         device = Device(
             udid=udid,
@@ -95,6 +106,11 @@ class DevicePool:
         (последовательный запуск без -n). Каждый worker — отдельный
         процесс, вычисляет свой индекс сам из СОБСТВЕННОГО worker_id —
         синхронизация между процессами не нужна.
+
+        Worker'ов больше чем устройств — ошибка, а не round-robin: индекс
+        по остатку от деления выдал бы двум параллельным процессам одно и то
+        же устройство вместе с его портами, то есть ровно ту коллизию, ради
+        отсутствия которой и существует этот пул.
         """
         if not self._devices:
             raise ValueError("DevicePool: no devices registered — call register() first")
@@ -105,7 +121,13 @@ class DevicePool:
             digits = "".join(c for c in worker_id if c.isdigit())
             index = int(digits) if digits else 0
 
-        return self._devices[index % len(self._devices)]
+        if index >= len(self._devices):
+            raise ValueError(
+                f"DevicePool: worker {worker_id!r} needs device #{index}, but only "
+                f"{len(self._devices)} device(s) are registered. Register one device per "
+                f"worker or run with -n {len(self._devices)}."
+            )
+        return self._devices[index]
 
     def to_capabilities_extra(self, device: Device) -> dict[str, int | str]:
         """

@@ -69,26 +69,55 @@ class TestIsAppiumAvailable:
 
 @pytest.mark.unit
 class TestCreateDriverUrl:
-    """Покрываем line 32: url = server_url or APPIUM_SERVERS[mode]."""
+    """create_driver обязан передавать выбранный адрес в webdriver.Remote."""
 
     def test_custom_server_url_overrides_mode(self):
         from mobius.driver.appium_driver import create_driver
         from mobius.driver.capabilities import pixel_6_api33
 
-        caps = pixel_6_api33()
-        # create_driver вызовет webdriver.Remote который упадёт без сервера,
-        # но мы мокируем его — нас интересует только что url передан правильно
-        from unittest.mock import patch
+        with patch("mobius.driver.appium_driver.webdriver.Remote") as MockRemote:
+            create_driver(pixel_6_api33(), server_url="http://custom:4723")
+
+        # Безусловно: проверка внутри `if MockRemote.called:` проходила бы и
+        # тогда, когда create_driver вообще не дошёл до драйвера.
+        MockRemote.assert_called_once()
+        assert MockRemote.call_args.kwargs["command_executor"] == "http://custom:4723"
+
+    def test_mode_url_is_used_when_no_server_url_given(self, monkeypatch):
+        from mobius.driver.appium_driver import APPIUM_SERVERS, ServerMode, create_driver
+        from mobius.driver.capabilities import pixel_6_api33
+
+        monkeypatch.delenv("APPIUM_SERVER_URL", raising=False)
+        monkeypatch.setenv("SAUCE_USERNAME", "u")
+        monkeypatch.setenv("SAUCE_ACCESS_KEY", "k")
 
         with patch("mobius.driver.appium_driver.webdriver.Remote") as MockRemote:
-            try:
-                create_driver(caps, server_url="http://custom:4723")
-            except Exception:
-                pass
-            if MockRemote.called:
-                call_kwargs = MockRemote.call_args
-                url_used = call_kwargs[1].get("command_executor") or call_kwargs[0][0]
-                assert url_used == "http://custom:4723"
+            create_driver(pixel_6_api33(), mode=ServerMode.SAUCE_LABS)
+
+        kwargs = MockRemote.call_args.kwargs
+        assert kwargs["command_executor"] == APPIUM_SERVERS[ServerMode.SAUCE_LABS]
+        # Секрет не в адресе, а в конфиге клиента (Basic-заголовок).
+        assert "@" not in kwargs["command_executor"]
+        assert kwargs["client_config"] is not None
+
+    def test_cloud_mode_without_credentials_never_opens_a_session(self, monkeypatch):
+        """
+        Прогон против облачного хаба без ключей — это ошибка конфигурации
+        запуска. Молча создать сессию с пустым Basic-заголовком означало бы
+        получить 401 посреди теста и принять его за провал приложения.
+        """
+        from mobius.driver.appium_driver import ServerMode, create_driver
+        from mobius.driver.capabilities import pixel_6_api33
+
+        monkeypatch.delenv("APPIUM_SERVER_URL", raising=False)
+        monkeypatch.delenv("SAUCE_USERNAME", raising=False)
+        monkeypatch.delenv("SAUCE_ACCESS_KEY", raising=False)
+
+        with patch("mobius.driver.appium_driver.webdriver.Remote") as MockRemote:
+            with pytest.raises(RuntimeError, match="SAUCE_USERNAME"):
+                create_driver(pixel_6_api33(), mode=ServerMode.SAUCE_LABS)
+
+        MockRemote.assert_not_called()
 
 
 @pytest.mark.unit

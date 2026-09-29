@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.support import expected_conditions as EC
@@ -11,8 +12,14 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from mobius.logging_config import get_logger
 from mobius.types import Locator
+from mobius.utils.driver_health import rethrow_if_driver_dead
 
 logger = get_logger(__name__)
+
+T = TypeVar("T")
+
+_ATTEMPTS = 3
+_RETRY_DELAY = 0.3
 
 
 class MobileElement:
@@ -23,30 +30,39 @@ class MobileElement:
         self._locator = locator
         self._timeout = timeout
 
-    def _find(self) -> Any:
-        return WebDriverWait(self._driver, self._timeout).until(
-            EC.presence_of_element_located(self._locator)
-        )
+    def _find(self, condition: Callable[[Any], Any] | None = None) -> Any:
+        """Локатор → элемент. По умолчанию ждём присутствия, а не отрисовки."""
+        ec = EC.presence_of_element_located(self._locator) if condition is None else condition
+        return WebDriverWait(self._driver, self._timeout).until(ec)
 
-    def _safe_action(self, action_name: str, *args: Any, **kwargs: Any) -> Any:
-        for attempt in range(3):
+    def _retry(
+        self,
+        action: Callable[[Any], T],
+        condition: Callable[[Any], Any] | None = None,
+    ) -> T:
+        """
+        Повторяем ТОЛЬКО при StaleElementReferenceException: локатор всё ещё
+        верный, протухла лишь ссылка на узел. Другие ошибки значимы сами по
+        себе — маскировать или ретраить их нельзя.
+        """
+        attempts_left = _ATTEMPTS
+        while True:
             try:
-                elem = self._find()
-                return getattr(elem, action_name)(*args, **kwargs)
+                return action(self._find(condition))
             except StaleElementReferenceException:
-                if attempt == 2:
+                attempts_left -= 1
+                if attempts_left == 0:
                     raise
-                time.sleep(0.3)
-        return None  # pragma: no cover
+                time.sleep(_RETRY_DELAY)
 
     def click(self) -> None:
-        self._safe_action("click")
+        self._retry(lambda elem: elem.click())
 
     def send_keys(self, *value: str) -> None:
-        self._safe_action("send_keys", *value)
+        self._retry(lambda elem: elem.send_keys(*value))
 
     def clear(self) -> None:
-        self._safe_action("clear")
+        self._retry(lambda elem: elem.clear())
 
     def clear_and_type(self, text: str) -> None:
         self.clear()
@@ -55,23 +71,21 @@ class MobileElement:
     @property
     def text(self) -> str:
         """`.text` у Selenium WebElement — атрибут, не метод. Читаем через getattr напрямую."""
-        for attempt in range(3):
-            try:
-                elem = self._find()
-                return str(elem.text) if elem.text is not None else ""
-            except StaleElementReferenceException:
-                if attempt == 2:
-                    raise
-                import time
-
-                time.sleep(0.3)
-        return ""  # pragma: no cover
+        value = self._retry(lambda elem: elem.text)
+        return "" if value is None else str(value)
 
     @property
     def is_displayed(self) -> bool:
+        """
+        Ждём ВИДИМОСТИ, а не присутствия: presence-подход возвращал True для
+        элемента в скрытом контейнере. Негативный ответ («не отображается»)
+        допустим только для штатных случаев отсутствия элемента.
+        """
         try:
-            return bool(self._safe_action("is_displayed"))
+            visible = EC.visibility_of_element_located(self._locator)
+            return bool(self._retry(lambda elem: elem.is_displayed(), visible))
         except Exception as e:
+            rethrow_if_driver_dead(e)
             # DEBUG: элемент отсутствует на экране — это ВАЛИДНЫЙ ответ
             # "не отображается", не ошибка. WARNING здесь завалил бы логи
             # на любой обычной проверке видимости.
@@ -81,14 +95,15 @@ class MobileElement:
     @property
     def is_enabled(self) -> bool:
         try:
-            return bool(self._safe_action("is_enabled"))
+            return bool(self._retry(lambda elem: elem.is_enabled()))
         except Exception as e:
+            rethrow_if_driver_dead(e)
             logger.debug("is_enabled: element not found, treating as not enabled: %s", e)
             return False
 
     def get_attribute(self, name: str) -> str | None:
-        result = self._safe_action("get_attribute", name)
-        return str(result) if result is not None else None
+        value = self._retry(lambda elem: elem.get_attribute(name))
+        return None if value is None else str(value)
 
     def __repr__(self) -> str:
         return f"MobileElement(locator={self._locator})"

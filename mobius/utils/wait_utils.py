@@ -10,6 +10,7 @@ from selenium.common.exceptions import (
     ElementNotInteractableException,
     NoSuchElementException,
     StaleElementReferenceException,
+    TimeoutException,
 )
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -69,9 +70,9 @@ class WaitUtils:
             except ignored_exceptions as e:
                 last_exc = e
             time.sleep(poll_frequency)
-        if last_exc:
+        if last_exc is not None:
             raise last_exc
-        raise TimeoutError(f"Condition not met within {t}s")
+        raise TimeoutException(f"Condition not met within {t}s")
 
     def wait_for_loading_gone(self, loading_locator: Locator, timeout: int = 30) -> None:
         try:
@@ -98,16 +99,17 @@ class RetryDecorator:
 
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             def wrapper(*args: Any, **kwargs: Any) -> Any:
-                last_exc: Exception | None = None
+                errors: list[Exception] = []
                 for attempt in range(times):
                     try:
                         return func(*args, **kwargs)
                     except exceptions as e:
-                        last_exc = e
+                        errors.append(e)
                         if attempt < times - 1:
                             time.sleep(delay)
-                assert last_exc is not None  # гарантировано циклом выше при times >= 1
-                raise last_exc
+                # Без assert: под `python -O` он исчезал бы, и `raise None`
+                # превращал бы настоящую ошибку в TypeError.
+                raise errors[-1]
 
             return wrapper
 

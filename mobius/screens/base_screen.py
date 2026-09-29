@@ -15,10 +15,12 @@ from mobius.types import Locator
 from mobius.utils.alerts import SystemAlertHandler
 from mobius.utils.clipboard import ClipboardManager
 from mobius.utils.device import DeviceActions
+from mobius.utils.driver_health import rethrow_if_driver_dead
 from mobius.utils.gestures import Gestures
 from mobius.utils.screenshot import ScreenshotUtils
 from mobius.utils.universal_finder import UniversalFinder
 from mobius.utils.wait_utils import WaitUtils
+from mobius.utils.xpath import uiautomator_literal, xpath_literal
 
 logger = get_logger(__name__)
 
@@ -56,13 +58,14 @@ class BaseScreen(ABC):
 
     def find(self, locator: Locator) -> MobileElement:
         """Возвращает MobileElement — StaleElement-safe wrapper с auto-retry x3."""
-        return MobileElement(self._driver, locator)
+        return MobileElement(self._driver, locator, timeout=self._timeout)
 
     def find_all(self, locator: Locator) -> list[Any]:
         return list(self._driver.find_elements(*locator))
 
     def find_by_text(self, text: str) -> Any:
-        return self._driver.find_element(AppiumBy.XPATH, f'//*[@text="{text}" or @label="{text}"]')
+        value = xpath_literal(text)
+        return self._driver.find_element(AppiumBy.XPATH, f"//*[@text={value} or @label={value}]")
 
     def find_by_id(self, resource_id: str) -> Any:
         return self._driver.find_element(AppiumBy.ID, resource_id)
@@ -73,21 +76,24 @@ class BaseScreen(ABC):
     def tap(self, locator: Locator) -> None:
         """Wait-until-clickable, затем click через MobileElement (StaleElement-safe)."""
         self.wait.wait_for_element_clickable(locator)
-        MobileElement(self._driver, locator).click()
+        self.find(locator).click()
 
     def type_text(self, locator: Locator, text: str) -> None:
         """Wait-until-visible, затем clear+send_keys через MobileElement (StaleElement-safe)."""
         self.wait.wait_for_element_visible(locator)
-        MobileElement(self._driver, locator).clear_and_type(text)
+        self.find(locator).clear_and_type(text)
 
     def get_text(self, locator: Locator) -> str:
-        return MobileElement(self._driver, locator).text
+        return self.find(locator).text
 
     def is_element_present(self, locator: Locator, timeout: int = 3) -> bool:
         try:
             WebDriverWait(self._driver, timeout).until(EC.presence_of_element_located(locator))
             return True
         except Exception as e:
+            # Потерянный драйвер — не «элемента нет»: иначе инфраструктурный
+            # сбой молча окрасит прогон в зелёный.
+            rethrow_if_driver_dead(e)
             # DEBUG: "элемент отсутствует" — это часто ОЖИДАЕМЫЙ результат
             # проверки (например is_error_shown() на happy path). WARNING
             # здесь будет ложным срабатыванием на каждый негативный тест.
@@ -98,8 +104,8 @@ class BaseScreen(ABC):
         """Android UiScrollable — скролл до текста."""
         return self._driver.find_element(
             AppiumBy.ANDROID_UIAUTOMATOR,
-            f"new UiScrollable(new UiSelector().scrollable(true))"
-            f'.scrollIntoView(new UiSelector().text("{text}"))',
+            "new UiScrollable(new UiSelector().scrollable(true))"
+            f".scrollIntoView(new UiSelector().text({uiautomator_literal(text)}))",
         )
 
     def hide_keyboard(self) -> None:

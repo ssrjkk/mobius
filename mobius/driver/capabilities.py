@@ -20,6 +20,23 @@ class AutomationName(str, Enum):
     ESPRESSO = "Espresso"
 
 
+#: Схемы, после которых app: — не путь на диске, а удалённый идентификатор.
+_REMOTE_APP_SCHEMES = ("http://", "https://", "bs://", "sauce-storage:", "s3://", "file://")
+
+
+def app_reference(app: str) -> str:
+    """Нормализуем локальный путь; облачный идентификатор отдаём как есть.
+
+    `Path('bs://hash.apk').resolve()` на Windows превращает ссылку на залитый
+    в BrowserStack бинарник в `D:\\bs:\\hash.apk` — сессия падает с невнятной
+    ошибкой. То же с `sauce-storage:` и с http(s)-ссылками, которые принимают
+    оба облачных провайдера.
+    """
+    if app.startswith(_REMOTE_APP_SCHEMES):
+        return app
+    return str(Path(app).expanduser().resolve())
+
+
 class ResetStrategy(str, Enum):
     """
     Стратегия сброса состояния приложения между тест-сессиями.
@@ -68,7 +85,7 @@ class DeviceCapabilities:
             "appium:autoGrantPermissions": self.auto_grant_permissions,
         }
         if self.app:
-            caps["appium:app"] = str(Path(self.app).resolve())
+            caps["appium:app"] = app_reference(self.app)
         if self.app_package:
             caps["appium:appPackage"] = self.app_package
         if self.app_activity:
@@ -131,6 +148,7 @@ def from_env() -> DeviceCapabilities:
         device_name=os.environ.get("DEVICE_NAME", "iPhone 15"),
         platform_version=os.environ.get("PLATFORM_VERSION", "17.0"),
         automation_name=AutomationName.XCUITEST,
+        app=os.environ.get("APP_PATH"),
         bundle_id=os.environ.get("BUNDLE_ID"),
         udid=os.environ.get("DEVICE_UDID"),
     )

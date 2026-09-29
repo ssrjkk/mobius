@@ -13,6 +13,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from selenium.common.exceptions import InvalidSessionIdException
 
 from mobius.utils.alerts import SystemAlertHandler
 from mobius.utils.clipboard import ClipboardManager
@@ -214,10 +215,30 @@ class TestSystemAlertHandler:
         self.alerts.accept()
         self.d.execute_script.assert_called_once_with("mobile: acceptAlert")
 
-    def test_accept_swallows_all_failures(self):
+    def test_accept_returns_false_when_both_paths_fail(self):
+        """
+        'Alert принят' должно означать что alert реально принят. Молчаливое
+        проглатывание обеих неудач давало зелёный прогон с необработанным
+        системным диалогом, который потом вешал следующий шаг теста.
+        """
         self.d.switch_to.alert.accept.side_effect = Exception()
         self.d.execute_script.side_effect = Exception()
-        self.alerts.accept()  # не падает
+        assert self.alerts.accept() is False
+
+    def test_accept_rethrows_dead_session(self):
+        self.d.switch_to.alert.accept.side_effect = InvalidSessionIdException(
+            "invalid session id 'abc'"
+        )
+        with pytest.raises(InvalidSessionIdException):
+            self.alerts.accept()
+
+    def test_is_present_rethrows_dead_session(self):
+        """Протухшая сессия — не «алерта нет», иначе прогон окрашивается в зелёный."""
+        type(self.d.switch_to).alert = property(
+            lambda self: (_ for _ in ()).throw(OSError("[Errno 10054] remote host closed"))
+        )
+        with pytest.raises(OSError):
+            self.alerts.is_present()
 
     def test_dismiss_calls_selenium_dismiss(self):
         self.alerts.dismiss()
@@ -235,6 +256,21 @@ class TestSystemAlertHandler:
     def test_get_text_exception_returns_empty(self):
         type(self.d.switch_to).alert = property(lambda self: (_ for _ in ()).throw(Exception()))
         assert self.alerts.get_text() == ""
+
+    def test_get_text_never_invents_value_from_non_text_response(self):
+        """
+        Без проверки типа `str(...)` превращает не-текст (например MagicMock из
+        кривой заглушки) в похожую на правду строку, и тест начинает сверять
+        текст которого не существовало.
+        """
+        assert self.alerts.get_text() == ""
+
+    def test_get_text_rethrows_dead_session(self):
+        type(self.d.switch_to).alert = property(
+            lambda self: (_ for _ in ()).throw(InvalidSessionIdException("invalid session id"))
+        )
+        with pytest.raises(InvalidSessionIdException):
+            self.alerts.get_text()
 
     def test_accept_if_present_true(self):
         self.d.switch_to.alert.text = "x"
@@ -263,22 +299,51 @@ class TestPermissionsManager:
         self.d = MagicMock()
         self.perms = PermissionsManager(self.d, app_package="com.app.test")
 
-    def test_grant_calls_execute_script(self):
-        self.perms.grant(Permission.CAMERA)
+    def test_grant_sends_android_permission_constants(self):
+        """
+        'mobile: changePermissions' принимает только настоящие константы
+        android.permission.* (или алиасы all/appops): payload вида ["camera"]
+        драйвер отклонял, а тест считал это успехом.
+        """
+        assert self.perms.grant(Permission.CAMERA) is True
         self.d.execute_script.assert_called_once()
         args = self.d.execute_script.call_args[0]
         assert args[0] == "mobile: changePermissions"
-        assert args[1]["permissions"] == ["camera"]
+        assert args[1]["permissions"] == ["android.permission.CAMERA"]
         assert args[1]["action"] == "grant"
+        assert args[1]["appPackage"] == "com.app.test"
 
-    def test_revoke_calls_execute_script(self):
-        self.perms.revoke(Permission.LOCATION)
+    def test_revoke_sends_all_permission_constants_for_scope(self):
+        assert self.perms.revoke(Permission.LOCATION) is True
         args = self.d.execute_script.call_args[0]
         assert args[1]["action"] == "revoke"
+        assert args[1]["permissions"] == [
+            "android.permission.ACCESS_FINE_LOCATION",
+            "android.permission.ACCESS_COARSE_LOCATION",
+        ]
 
-    def test_grant_swallows_exception(self):
+    def test_every_permission_maps_to_real_constants(self):
+        from mobius.utils.permissions import _ANDROID_PERMISSIONS
+
+        for perm, names in _ANDROID_PERMISSIONS.items():
+            assert names, f"{perm} maps to no permission"
+            for name in names:
+                assert name.startswith("android.permission."), f"{perm} → {name!r}"
+
+    def test_grant_returns_false_when_driver_rejects(self):
         self.d.execute_script.side_effect = Exception("not supported")
-        self.perms.grant(Permission.MICROPHONE)  # не падает
+        assert self.perms.grant(Permission.MICROPHONE) is False
+
+    def test_grant_without_package_skips_driver_and_returns_false(self):
+        perms = PermissionsManager(MagicMock())
+        assert perms.grant(Permission.CAMERA) is False
+        perms._driver.execute_script.assert_not_called()
+
+    def test_package_resolved_from_capabilities(self):
+        d = MagicMock()
+        d.capabilities = {"appium:appPackage": "com.from.caps"}
+        assert PermissionsManager(d).grant(Permission.CAMERA) is True
+        assert d.execute_script.call_args[0][1]["appPackage"] == "com.from.caps"
 
     def test_handle_permission_dialog_absent_returns_false(self):
         type(self.d.switch_to).alert = property(lambda self: (_ for _ in ()).throw(Exception()))
@@ -295,6 +360,13 @@ class TestPermissionsManager:
         result = self.perms.handle_permission_dialog(PermissionAction.DENY)
         assert result is True
         self.d.switch_to.alert.dismiss.assert_called_once()
+
+    def test_handle_permission_dialog_returns_false_when_accept_fails(self):
+        """Диалог есть, но нажатие не прошло: 'разрешение обработано' — это False."""
+        self.d.switch_to.alert.text = "Allow camera access?"
+        self.d.switch_to.alert.accept.side_effect = Exception("not clickable")
+        self.d.execute_script.side_effect = Exception("mobile: acceptAlert unsupported")
+        assert self.perms.handle_permission_dialog(PermissionAction.ALLOW) is False
 
 
 # ── ClipboardManager ─────────────────────────────────────────────────────────
@@ -362,17 +434,74 @@ class TestLocaleManager:
         loc = LocaleManager(d)
         assert loc.set_locale("fr") is False
 
-    def test_get_current_locale(self):
+    def test_get_current_locale_reads_device_prop(self):
+        """
+        get_settings() локаль не отдаёт, поэтому значение читается getprop'ом.
+        Старый тест сверялся с get_settings и «проходил», ничего не прочитав.
+        """
         d = android_driver()
-        d.get_settings.return_value = {"locale": "ru_RU"}
+        d.execute_script.return_value = "ru-RU"
         loc = LocaleManager(d)
-        assert loc.get_current_locale() == {"locale": "ru_RU"}
+        assert loc.get_current_locale() == {
+            "locale": "ru-RU",
+            "language": "ru",
+            "country": "RU",
+            "source": "persist.sys.locale",
+        }
+        d.get_settings.assert_not_called()
 
-    def test_get_current_locale_exception_returns_unknown(self):
+    def test_get_current_locale_accepts_stdout_dict(self):
         d = android_driver()
-        d.get_settings.side_effect = Exception()
-        loc = LocaleManager(d)
-        assert loc.get_current_locale() == {"locale": "unknown"}
+        d.execute_script.return_value = {"stdout": "en-US\r\n", "stderr": "", "code": 0}
+        assert LocaleManager(d).get_current_locale()["locale"] == "en-US"
+
+    def test_get_current_locale_falls_back_to_build_locale(self):
+        d = android_driver()
+        d.execute_script.side_effect = ["", "de-DE"]
+        result = LocaleManager(d).get_current_locale()
+        assert result["locale"] == "de-DE"
+        assert result["source"] == "ro.product.locale"
+
+    def test_get_current_locale_underscores_are_normalized(self):
+        d = ios_driver()
+        d.capabilities = {"platformName": "iOS", "appium:locale": "ru_RU"}
+        result = LocaleManager(d).get_current_locale()
+        assert result["locale"] == "ru-RU"
+        assert (result["language"], result["country"]) == ("ru", "RU")
+        assert "capabilities" in result["source"]
+
+    def test_get_current_locale_unknown_when_nothing_readable(self):
+        d = android_driver()
+        d.execute_script.return_value = None
+        assert LocaleManager(d).get_current_locale() == {
+            "locale": "unknown",
+            "language": "unknown",
+            "country": "",
+            "source": "unavailable",
+        }
+
+    def test_get_current_locale_unknown_on_shell_exception(self):
+        d = android_driver()
+        d.execute_script.side_effect = Exception("shell not supported")
+        assert LocaleManager(d).get_current_locale()["source"] == "unavailable"
+
+    def test_get_current_locale_never_invents_value_from_non_text_response(self):
+        """
+        Ответ не строка и не dict со stdout — значит прочитать нечем. str(out)
+        превратил бы любой мусор в «локаль», и локализационный тест сверялся бы
+        с собственным mock'ом.
+        """
+        d = android_driver()
+        assert LocaleManager(d).get_current_locale()["source"] == "unavailable"
+
+    def test_get_current_locale_ios_without_capability_is_unknown(self):
+        d = ios_driver()
+        assert LocaleManager(d).get_current_locale()["locale"] == "unknown"
+
+    def test_get_current_locale_ios_reads_capabilities_not_shell(self):
+        d = ios_driver()
+        LocaleManager(d).get_current_locale()
+        d.execute_script.assert_not_called()
 
 
 # ── UniversalFinder ──────────────────────────────────────────────────────────
@@ -395,7 +524,7 @@ class TestUniversalFinder:
     def test_find_by_text_exact_uses_equality(self):
         self.finder.find_by_text("Login", exact=True)
         xpath = self.d.find_element.call_args[0][1]
-        assert 'text="Login"' in xpath
+        assert "text='Login'" in xpath
         assert "contains(" not in xpath
 
     def test_find_all_by_text(self):
@@ -488,13 +617,18 @@ class TestNotificationHelper:
         self.d = MagicMock()
         self.notif = NotificationHelper(self.d)
 
-    def test_open_shade(self):
-        self.notif.open_shade()
+    def test_open_shade_returns_true(self):
+        assert self.notif.open_shade() is True
         self.d.open_notifications.assert_called_once()
 
-    def test_open_shade_swallows_exception(self):
+    def test_open_shade_returns_false_when_command_rejected(self):
         self.d.open_notifications.side_effect = Exception("not supported")
-        self.notif.open_shade()  # не падает
+        assert self.notif.open_shade() is False
+
+    def test_open_shade_rethrows_dead_driver(self):
+        self.d.open_notifications.side_effect = InvalidSessionIdException("gone")
+        with pytest.raises(InvalidSessionIdException):
+            self.notif.open_shade()
 
     def test_get_notifications_text(self):
         e1, e2 = MagicMock(), MagicMock()
@@ -511,13 +645,30 @@ class TestNotificationHelper:
         result = self.notif.get_notifications_text()
         assert result == []
 
+    def test_get_notifications_text_skips_non_string_text(self):
+        e1 = MagicMock()
+        e1.text = 42
+        self.d.find_elements.return_value = [e1]
+        assert self.notif.get_notifications_text() == []
+
     def test_get_notifications_text_exception_returns_empty_list(self):
         self.d.find_elements.side_effect = Exception("driver error")
         assert self.notif.get_notifications_text() == []
 
+    def test_get_notifications_text_rethrows_dead_driver(self):
+        self.d.find_elements.side_effect = InvalidSessionIdException("gone")
+        with pytest.raises(InvalidSessionIdException):
+            self.notif.get_notifications_text()
+
     def test_has_notification_containing_true(self):
         e1 = MagicMock()
         e1.text = "Order shipped successfully"
+        self.d.find_elements.return_value = [e1]
+        assert self.notif.has_notification_containing("shipped") is True
+
+    def test_has_notification_containing_is_case_insensitive(self):
+        e1 = MagicMock()
+        e1.text = "Order SHIPPED"
         self.d.find_elements.return_value = [e1]
         assert self.notif.has_notification_containing("shipped") is True
 
@@ -527,13 +678,41 @@ class TestNotificationHelper:
         self.d.find_elements.return_value = [e1]
         assert self.notif.has_notification_containing("shipped") is False
 
+    def test_has_notification_containing_opens_shade_once(self):
+        self.d.find_elements.return_value = []
+        self.notif.has_notification_containing("shipped")
+        self.d.open_notifications.assert_called_once()
+
+    def test_has_notification_containing_rejects_empty_text(self):
+        # Пустая подстрока совпадает с любым уведомлением — проверка была бы
+        # всегда истинной.
+        with pytest.raises(ValueError, match="empty text"):
+            self.notif.has_notification_containing("")
+
+    def test_has_notification_containing_refuses_vacuous_check(self):
+        # Шторка не открылась → мы ничего не посмотрели. False здесь означало
+        # «уведомления нет», то есть зелёный негативный ассерт на пустоте.
+        self.d.open_notifications.side_effect = Exception("not supported")
+        with pytest.raises(AssertionError, match="vacuous"):
+            self.notif.has_notification_containing("shipped")
+        self.d.find_elements.assert_not_called()
+
+    def test_has_notification_containing_require_shade_false_accepts_blind_result(self):
+        self.d.open_notifications.side_effect = Exception("not supported")
+        assert self.notif.has_notification_containing("shipped", require_shade=False) is False
+
     def test_close_shade(self):
-        self.notif.close_shade()
+        assert self.notif.close_shade() is True
         self.d.press_keycode.assert_called_once_with(4)
 
-    def test_close_shade_swallows_exception(self):
+    def test_close_shade_returns_false_when_key_rejected(self):
         self.d.press_keycode.side_effect = Exception("no keycode support")
-        self.notif.close_shade()  # не падает
+        assert self.notif.close_shade() is False
+
+    def test_close_shade_rethrows_dead_driver(self):
+        self.d.press_keycode.side_effect = InvalidSessionIdException("gone")
+        with pytest.raises(InvalidSessionIdException):
+            self.notif.close_shade()
 
 
 @pytest.mark.unit

@@ -39,12 +39,13 @@ class PerformanceReport:
 
 
 class PerformanceCollector:
-    # Google RAIL model thresholds
+    # Google RAIL model thresholds. Все значения — миллисекунды, потому что
+    # `assert_under(..., threshold_ms)` сравнивает именно длительности.
     THRESHOLDS = {
         "app_startup": 5_000,
         "screen_load": 2_000,
         "tap_response": 100,
-        "scroll_fps": 16,
+        "frame_time": 16,  # бюджет на один кадр анимации, не «fps»
         "api_response": 3_000,
     }
 
@@ -78,6 +79,27 @@ class PerformanceCollector:
         return elapsed_ms
 
     def assert_all_thresholds(self) -> None:
-        for name, _value in self.report.metrics.items():
-            if name in self.THRESHOLDS:
-                self.report.assert_under(name, self.THRESHOLDS[name])
+        """
+        Сравнивает каждую метрику с её порогом.
+
+        Метрика без порога — это предупреждение, а не молчание: иначе проверка
+        «проходила», ничего не проверив.
+        """
+        checked = 0
+        for name, value in self.report.metrics.items():
+            threshold = self.THRESHOLDS.get(name)
+            if threshold is None:
+                logger.warning(
+                    "assert_all_thresholds: no threshold for '%s' (%sms) — not checked. "
+                    "Add it to PerformanceCollector.THRESHOLDS.",
+                    name,
+                    value,
+                )
+                continue
+            self.report.assert_under(name, threshold)
+            checked += 1
+        if checked == 0:
+            raise AssertionError(
+                "No measured metric has a configured threshold — assert_all_thresholds "
+                "would pass without checking anything."
+            )

@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from mobius.logging_config import get_logger
+from mobius.utils.screenshot import artifact_path
 
 logger = get_logger(__name__)
 
@@ -43,17 +44,23 @@ class ScreenRecorder:
             return False
 
     def stop_and_save(self, filename: str) -> str | None:
-        """Останавливает запись и сохраняет .mp4 файл. Возвращает путь или None."""
+        """
+        Останавливает запись и сохраняет .mp4 файл. Возвращает путь или None.
+
+        Имя файла проходит через artifact_path (граница безопасности от
+        path traversal) ДО остановки записи: ValueError при недоверенном
+        имени не должен проглатываться broad except ниже.
+        """
         if not self._recording:
             logger.warning("stop_and_save('%s'): no active recording to stop", filename)
             return None
+        path = artifact_path(self._dir, filename, ".mp4")
         try:
             encoded = self._driver.stop_recording_screen()
             self._recording = False
             if isinstance(encoded, bytes):
                 encoded = encoded.decode()
             data = base64.b64decode(encoded)
-            path = self._dir / f"{filename}.mp4"
             path.write_bytes(data)
             return str(path)
         except Exception as e:

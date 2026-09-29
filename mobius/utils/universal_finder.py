@@ -19,7 +19,9 @@ from typing import Any
 from appium.webdriver.common.appiumby import AppiumBy
 
 from mobius.logging_config import get_logger
+from mobius.utils.driver_health import rethrow_if_driver_dead
 from mobius.utils.platform_info import is_ios
+from mobius.utils.xpath import xpath_literal
 
 logger = get_logger(__name__)
 
@@ -44,19 +46,20 @@ class UniversalFinder:
 
     def find_by_text(self, text: str, exact: bool = False) -> Any:
         """Находит любой элемент содержащий текст — работает на Android и iOS."""
+        value = xpath_literal(text)
         if exact:
-            xpath = f'//*[@text="{text}" or @label="{text}" or @name="{text}" or @value="{text}"]'
+            xpath = f"//*[@text={value} or @label={value} or @name={value} or @value={value}]"
         else:
             xpath = (
-                f'//*[contains(@text,"{text}") or contains(@label,"{text}") '
-                f'or contains(@name,"{text}") or contains(@value,"{text}")]'
+                f"//*[contains(@text,{value}) or contains(@label,{value}) "
+                f"or contains(@name,{value}) or contains(@value,{value})]"
             )
         return self._driver.find_element(AppiumBy.XPATH, xpath)
 
     def find_all_by_text(self, text: str) -> list[Any]:
+        value = xpath_literal(text)
         xpath = (
-            f'//*[contains(@text,"{text}") or contains(@label,"{text}") '
-            f'or contains(@name,"{text}")]'
+            f"//*[contains(@text,{value}) or contains(@label,{value}) or contains(@name,{value})]"
         )
         return list(self._driver.find_elements(AppiumBy.XPATH, xpath))
 
@@ -114,5 +117,6 @@ class UniversalFinder:
             self.find_by_text(text)
             return True
         except Exception as e:
+            rethrow_if_driver_dead(e)
             logger.debug("screen_contains_text('%s'): not found: %s", text, e)
             return False

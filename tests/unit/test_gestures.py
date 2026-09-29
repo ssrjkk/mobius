@@ -1,10 +1,19 @@
-"""Unit tests — gestures."""
+"""
+Unit tests — gestures.
+
+Здесь только чистая арифметика и диспетчеризация (какой метод вызывает какой).
+Формат W3C Actions, реально уходящий на сервер, проверяется в
+tests/wire_protocol/test_gestures_wire.py: mock драйвера пропускает любой
+бессмысленный payload, и именно поэтому он когда-то «зеленел» на сломанном
+long_press.
+"""
 
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
 import pytest
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 
 from mobius.utils.gestures import Gestures, SwipeDirection
 
@@ -47,19 +56,19 @@ class TestSwipeCoords:
 
 
 @pytest.mark.unit
-class TestGesturesMocked:
+class TestGesturesDispatch:
     def setup_method(self):
         self.d = MagicMock()
         self.d.get_window_size.return_value = S
         self.g = Gestures(self.d)
 
-    def test_swipe_calls_window_size(self):
+    def test_swipe_reads_window_size(self):
         with patch.object(self.g, "_w3c_swipe"):
             self.g.swipe(SwipeDirection.UP)
         self.d.get_window_size.assert_called_once()
 
     @pytest.mark.parametrize("direction", list(SwipeDirection))
-    def test_all_swipes_call_w3c(self, direction):
+    def test_all_swipes_go_through_w3c(self, direction):
         with patch.object(self.g, "_w3c_swipe") as m:
             self.g.swipe(direction)
         m.assert_called_once()
@@ -69,117 +78,45 @@ class TestGesturesMocked:
             self.g.swipe(SwipeDirection.UP, duration_ms=800)
         assert m.call_args[0][4] == 800
 
+    def test_swipe_coords_match_direction(self):
+        with patch.object(self.g, "_w3c_swipe") as m:
+            self.g.swipe(SwipeDirection.UP)
+        assert m.call_args[0][:4] == (540, 1920, 540, 480)
+
     def test_swipe_to_element_first_try(self):
         elem = MagicMock()
         self.d.find_element.return_value = elem
         assert self.g.swipe_to_element(("id", "x")) == elem
+        self.d.get_window_size.assert_not_called()
 
-    def test_swipe_to_element_timeout(self):
-        from selenium.common.exceptions import NoSuchElementException
-
+    def test_swipe_to_element_raises_timeout_not_missing(self):
+        """Вызов ловит NoSuchElementException внутри — наружу должен идти TimeoutException."""
         self.d.find_element.side_effect = NoSuchElementException()
         with patch.object(self.g, "_w3c_swipe"):
-            with pytest.raises(TimeoutError):
+            with pytest.raises(TimeoutException, match="not found after 2 swipes"):
                 self.g.swipe_to_element(("id", "x"), max_attempts=2)
 
     def test_swipe_to_element_succeeds_after_retries(self):
-        from selenium.common.exceptions import NoSuchElementException
-
         elem = MagicMock()
-        calls = [0]
+        calls = {"n": 0}
 
-        def find(by, val):
-            calls[0] += 1
-            if calls[0] < 3:
+        def find(_by, _val):
+            calls["n"] += 1
+            if calls["n"] < 3:
                 raise NoSuchElementException()
             return elem
 
         self.d.find_element.side_effect = find
+        with patch.object(self.g, "_w3c_swipe") as swipe:
+            assert self.g.swipe_to_element(("id", "x"), max_attempts=5) == elem
+        assert swipe.call_count == 2
+
+    def test_swipe_to_element_zero_attempts_is_a_configuration_error(self):
+        """max_attempts=0 не должен выглядеть как «элемент не найден после 0 свайпов»."""
+        with pytest.raises(ValueError, match="max_attempts must be >= 1"):
+            self.g.swipe_to_element(("id", "x"), max_attempts=0)
+
+    def test_pinch_uses_screen_geometry(self):
         with patch.object(self.g, "_w3c_swipe"):
-            result = self.g.swipe_to_element(("id", "x"), max_attempts=5)
-        assert result == elem
-
-    def test_pinch_calls_w3c(self):
-        with patch.object(self.g, "_w3c_swipe") as m:
             self.g.pinch(0.5)
-        m.assert_called_once()
-
-
-@pytest.mark.unit
-class TestGesturesW3CActions:
-    """Покрываем W3C Actions через mock ActionChains/ActionBuilder."""
-
-    def setup_method(self):
-        self.d = MagicMock()
-        self.d.get_window_size.return_value = S
-        self.g = Gestures(self.d)
-
-    def _make_mocks(self):
-        pa = MagicMock()
-        ka = MagicMock()
-        ab_instance = MagicMock()
-        ab_instance.pointer_action = pa
-        ab_instance.key_action = ka
-        MockAB = MagicMock(return_value=ab_instance)
-
-        ac = MagicMock()
-        ac.perform = MagicMock()
-        type(ac).w3c_actions = property(
-            lambda self: ab_instance,
-            lambda self, v: None,
-        )
-        MockAC = MagicMock(return_value=ac)
-        return MockAC, MockAB, ac, ab_instance, pa, ka
-
-    def test_long_press(self):
-        MockAC, MockAB, ac, ab, pa, ka = self._make_mocks()
-        with (
-            patch("mobius.utils.gestures.ActionChains", MockAC),
-            patch("mobius.utils.gestures.ActionBuilder", MockAB),
-        ):
-            self.g.long_press(MagicMock(), duration_ms=1000)
-        pa.pointer_down.assert_called_once()
-        pa.release.assert_called_once()
-        ka.pause.assert_called_once_with(1.0)
-        ac.perform.assert_called_once()
-
-    def test_long_press_at(self):
-        MockAC, MockAB, ac, ab, pa, ka = self._make_mocks()
-        with (
-            patch("mobius.utils.gestures.ActionChains", MockAC),
-            patch("mobius.utils.gestures.ActionBuilder", MockAB),
-        ):
-            self.g.long_press_at(100, 200, 1500)
-        pa.move_to_location.assert_called_once_with(100, 200)
-        ac.perform.assert_called_once()
-
-    def test_double_tap(self):
-        MockAC, MockAB, ac, ab, pa, ka = self._make_mocks()
-        with (
-            patch("mobius.utils.gestures.ActionChains", MockAC),
-            patch("mobius.utils.gestures.ActionBuilder", MockAB),
-        ):
-            self.g.double_tap(MagicMock())
-        assert pa.pointer_down.call_count == 2
-        assert pa.release.call_count == 2
-        ac.perform.assert_called_once()
-
-    def test_drag_and_drop(self):
-        MockAC, MockAB, ac, ab, pa, ka = self._make_mocks()
-        with (
-            patch("mobius.utils.gestures.ActionChains", MockAC),
-            patch("mobius.utils.gestures.ActionBuilder", MockAB),
-        ):
-            self.g.drag_and_drop(MagicMock(), MagicMock())
-        pa.pointer_down.assert_called_once()
-        pa.release.assert_called_once()
-        assert ka.pause.call_count == 2
-        ac.perform.assert_called_once()
-
-    def test_w3c_swipe_direct(self):
-        with patch("mobius.utils.gestures.ActionBuilder") as AB:
-            ab_inst = MagicMock()
-            AB.return_value = ab_inst
-            self.g._w3c_swipe(100, 200, 300, 400, 500)
-        ab_inst.pointer_action.move_to_location.assert_any_call(100, 200)
-        ab_inst.perform.assert_called_once()
+        self.d.get_window_size.assert_called_once()

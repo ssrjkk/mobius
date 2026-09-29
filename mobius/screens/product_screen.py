@@ -26,7 +26,16 @@ class ProductDetailScreen(BaseScreen):
         return self.get_text(self._PRICE)
 
     def get_quantity(self) -> int:
-        return int(self.get_text(self._COUNTER))
+        raw = self.get_text(self._COUNTER)
+        try:
+            return int(raw.strip())
+        except ValueError:
+            # Голый `int(...)` даёт "invalid literal for int(): ''" — по нему не
+            # понять, пропал ли счётчик, изменил ли приложение формат текста или
+            # локатор указывает не туда.
+            raise ValueError(
+                f"'counter amount' rendered as {raw!r}, which is not an integer quantity."
+            ) from None
 
     def add_to_cart(self) -> None:
         self.tap(self._ADD_TO_CART)

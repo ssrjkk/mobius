@@ -63,8 +63,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     doctor_parser.add_argument(
         "--appium-url",
-        default="http://localhost:4723",
-        help="URL Appium сервера для проверки (default: http://localhost:4723)",
+        default=None,
+        help="URL Appium сервера (default: $APPIUM_SERVER_URL или http://localhost:4723)",
     )
     doctor_parser.set_defaults(func=cmd_doctor)
 

@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from mobius.logging_config import get_logger
+from mobius.utils.driver_health import rethrow_if_driver_dead
 
 logger = get_logger(__name__)
 
@@ -29,6 +30,11 @@ class CrashReport:
     crashed: bool
     matched_lines: list[str] = field(default_factory=list)
     log_type: str = "logcat"
+    # Сколько строк реально прочитано и сколько дошло до проверки (после
+    # фильтра по пакету). Без этого «крашей не найдено» неотличимо от
+    # «логи не прочитаны вообще» — и то, и другое даёт зелёный прогон.
+    lines_read: int = 0
+    lines_checked: int = 0
 
     def summary(self) -> str:
         if not self.crashed:
@@ -55,6 +61,7 @@ class DeviceLogCollector:
         try:
             return list(self._driver.get_log(log_type))
         except Exception as e:
+            rethrow_if_driver_dead(e)
             logger.warning(
                 "get_logs(log_type='%s') failed — check get_available_log_types() "
                 "for supported types on this driver: %s",
@@ -72,10 +79,11 @@ class DeviceLogCollector:
         """
         Проверяет логи на признаки краша приложения.
         Если указан app_package — фильтрует только строки с упоминанием пакета.
+        Учитывай, что с фильтром проверяются только те строки, где пакет назван:
+        без него зачёт шире, но в него попадают краши других приложений.
         """
-        lines = self.get_logs_text(log_type)
-        if app_package:
-            lines = [ln for ln in lines if app_package in ln]
+        all_lines = self.get_logs_text(log_type)
+        lines = [ln for ln in all_lines if app_package in ln] if app_package else all_lines
 
         matched = []
         for line in lines:
@@ -84,11 +92,40 @@ class DeviceLogCollector:
                     matched.append(line)
                     break
 
-        return CrashReport(crashed=len(matched) > 0, matched_lines=matched, log_type=log_type)
+        return CrashReport(
+            crashed=len(matched) > 0,
+            matched_lines=matched,
+            log_type=log_type,
+            lines_read=len(all_lines),
+            lines_checked=len(lines),
+        )
 
-    def assert_no_crash(self, app_package: str | None = None) -> None:
+    def assert_no_crash(self, app_package: str | None = None, *, require_logs: bool = True) -> None:
+        """
+        Падает если в логах есть краш — И если ни одна строка не была проверена.
+        Второй случай обязателен: 'get_logs' не поддержан драйвером или фильтр по
+        пакету не нашёл ни одной строки — это не «крашей нет», а «мы ничего не
+        посмотрели», и без проверки такой шаг всегда зелёный.
+        """
         report = self.check_for_crash(app_package=app_package)
-        assert not report.crashed, report.summary()
+        if report.crashed:
+            raise AssertionError(report.summary())
+        if not require_logs or report.lines_checked > 0:
+            return
+        if report.lines_read == 0:
+            detail = (
+                f"0 '{report.log_type}' lines were collected — log collection failed "
+                "or is unsupported by this driver"
+            )
+        else:
+            detail = (
+                f"{report.lines_read} '{report.log_type}' lines were read but none "
+                f"mention app_package={app_package!r}"
+            )
+        raise AssertionError(
+            f"Crash check is vacuous: {detail}. It would have passed having examined "
+            "nothing — pass require_logs=False only if you accept that."
+        )
 
     def find_errors(self, log_type: str = "logcat", level: str = "ERROR") -> list[str]:
         """Возвращает строки логов заданного уровня — для расследования не-краш проблем."""

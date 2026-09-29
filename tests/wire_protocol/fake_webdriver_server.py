@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 import threading
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
@@ -33,6 +33,7 @@ class RecordedRequest:
     method: str
     path: str
     body: dict[str, Any] | None
+    headers: dict[str, str] = field(default_factory=dict)
 
 
 class FakeWebDriverServer:
@@ -72,12 +73,15 @@ class FakeWebDriverServer:
                 self.wfile.write(body)
 
             def _record(self, method: str, path: str, body: dict[str, Any] | None) -> None:
+                request = RecordedRequest(
+                    method, path, body, {k.lower(): v for k, v in self.headers.items()}
+                )
                 with server_self._lock:
-                    server_self._requests.append(RecordedRequest(method, path, body))
+                    server_self._requests.append(request)
 
             def do_GET(self) -> None:
                 self._record("GET", self.path, None)
-                if self.path == "/status":
+                if self.path.endswith("/status"):
                     self._respond_json(200, {"value": {"ready": True, "message": "fake"}})
                 elif "/orientation" in self.path:
                     self._respond_json(200, {"value": "PORTRAIT"})
@@ -94,7 +98,9 @@ class FakeWebDriverServer:
                 body = self._read_body()
                 self._record("POST", self.path, body)
 
-                if self.path == "/session":
+                # Путь может быть с base-path'ом Appium 2 ("/session") и с
+                # hub-префиксом Appium 1 ("/wd/hub/session") — сравниваем хвост.
+                if self.path.endswith("/session"):
                     caps = {}
                     if body:
                         caps = body.get("capabilities", {}).get("alwaysMatch", {}) or body.get(

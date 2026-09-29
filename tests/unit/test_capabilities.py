@@ -150,7 +150,7 @@ class TestPackageVersion:
         import mobius
 
         pyproject_path = Path(__file__).parent.parent.parent / "pyproject.toml"
-        data = tomllib.loads(pyproject_path.read_text())
+        data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
         assert mobius.__version__ == data["project"]["version"]
 
     def test_version_is_valid_semver_format(self):

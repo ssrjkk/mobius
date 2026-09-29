@@ -16,7 +16,7 @@ import sys
 from dataclasses import dataclass
 from enum import Enum
 
-from mobius.driver.appium_driver import is_appium_available
+from mobius.driver.appium_driver import default_server_url, is_appium_available
 from mobius.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -77,13 +77,15 @@ def check_core_dependencies() -> CheckResult:
     )
 
 
-def check_appium_server(url: str = "http://localhost:4723") -> CheckResult:
-    if is_appium_available(url):
-        return CheckResult("Appium server", Status.OK, f"reachable at {url}")
+def check_appium_server(url: str | None = None) -> CheckResult:
+    resolved = url or default_server_url()
+    if is_appium_available(resolved):
+        return CheckResult("Appium server", Status.OK, f"reachable at {resolved}")
     return CheckResult(
         "Appium server",
         Status.WARNING,
-        f"not reachable at {url} — UI tests will auto-skip. Start with: appium --base-path /wd/hub",
+        f"not reachable at {resolved} — UI tests will auto-skip. Start it with "
+        f"`appium`, or point APPIUM_SERVER_URL at the running server.",
     )
 
 
@@ -146,7 +148,7 @@ def check_env_vars() -> list[CheckResult]:
     return results
 
 
-def run_diagnostics(appium_url: str = "http://localhost:4723") -> list[CheckResult]:
+def run_diagnostics(appium_url: str | None = None) -> list[CheckResult]:
     """
     Полный набор проверок окружения. Не падает ни на одной проверке —
     каждая обёрнута в защиту, результат всегда список CheckResult.

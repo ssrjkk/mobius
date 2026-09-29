@@ -46,11 +46,11 @@ test = [
 ## Обоснование
 
 - `dependencies` = то, что нужно ЛЮБОМУ коду, который импортирует
-  `framework.*`, независимо от того, каким test runner'ом пользуется
+  `mobius.*`, независимо от того, каким test runner'ом пользуется
   команда-потребитель.
 - `[test]` extras = то, что нужно только для запуска НАШЕГО собственного
   тест-сьюта (`tests/`) — не нужно команде, которая просто использует
-  `framework` как библиотеку в своих тестах.
+  `mobius` как библиотеку в своих тестах.
 - `allure-python-commons` вместо `allure-pytest` — проверено эмпирически
   через `pip show allure-python-commons`: реальный модуль `allure`
   физически находится в этом пакете, `allure-pytest` — это отдельный
@@ -59,7 +59,7 @@ test = [
 ## Последствия
 
 - Verified: чистый venv, `pip install -e .`, `pip list` → 0 пакетов
-  pytest/ruff/mypy. `import framework.utils.gestures` работает.
+  pytest/ruff/mypy. `import mobius.utils.gestures` работает.
 - Если понадобится добавить новую зависимость в код `mobius/` —
   проверяй, идёт ли она в `dependencies` (используется в коде
   библиотеки) или в `[test]` (используется только в `tests/`).
