@@ -156,6 +156,7 @@ pip install -e ".[test]"
 
 ## Documentation
 
+- **[USAGE.md](USAGE.md)** — detailed usage guide with examples
 - **[CHANGELOG.md](CHANGELOG.md)** — version history
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — contribution guidelines
 - **[docs/adr/](docs/adr/)** — architecture decision records

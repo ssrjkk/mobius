@@ -156,6 +156,7 @@ pip install -e ".[test]"
 
 ## Документация
 
+- **[USAGE.md](USAGE.md)** — подробное руководство по использованию с примерами
 - **[CHANGELOG.md](CHANGELOG.md)** — история версий
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — как контрибьютить
 - **[docs/adr/](docs/adr/)** — архитектурные решения
