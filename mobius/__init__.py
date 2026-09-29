@@ -1,5 +1,5 @@
 """
-Mobius — Universal Mobile QA Automation Framework.
+Mobius — Mobile QA Automation.
 Android / iOS · Appium 2.x · pytest · Allure
 
 Author:  Ситников Сергей (ssrjkk)

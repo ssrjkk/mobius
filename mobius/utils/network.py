@@ -7,6 +7,7 @@ from enum import Enum
 from typing import Any
 
 from mobius.logging_config import get_logger
+from mobius.utils.driver_health import rethrow_if_driver_dead
 
 logger = get_logger(__name__)
 
@@ -37,39 +38,75 @@ PROFILES: dict[NetworkProfile, NetworkCondition] = {
 
 
 class NetworkSimulator:
+    """
+    Переключает сетевой профиль устройства.
+
+    Все методы-команды возвращают True только когда драйвер принял команду без
+    исключения: `current_profile` должен описывать реальное состояние устройства,
+    а не намерение теста. Иначе «тест на 3G» или «тест в offline» проходит на
+    полностью связном устройстве — зелёный прогон, который ничего не проверял.
+
+    Реально доступны два разных механизма:
+      - OFFLINE/онлайн — `set_network_connection` (bitmask), работает на
+        Android-эмуляторе и устройстве;
+      - скорости (WIFI/LTE/3G/2G) — троттлинг, который драйвер обязан
+        применить сам. Если он его не поддерживает, set_profile() вернёт
+        False и `current_profile` не изменится: проверять связность в этом
+        случае бессмысленно, нужен внешний шейпер (tc/clash, Network Link
+        Conditioner на macOS, настройки AVD).
+    """
+
     def __init__(self, driver: Any) -> None:
         self._driver = driver
         self._current: NetworkProfile | None = None
 
-    def set_profile(self, profile: NetworkProfile) -> None:
-        self._current = profile
+    def set_profile(self, profile: NetworkProfile) -> bool:
         if profile == NetworkProfile.OFFLINE:
-            self.go_offline()
+            applied = self.go_offline()
         else:
-            self._apply(PROFILES[profile])
-
-    def go_offline(self) -> None:
-        self._current = NetworkProfile.OFFLINE
-        try:
-            self._driver.set_network_connection(0)
-        except Exception as e:
+            if self._current == NetworkProfile.OFFLINE:
+                # Любой профиль кроме OFFLINE подразумевает связь: без этого
+                # выход из offline оставил бы устройство без сети.
+                self.go_online()
+            applied = self._apply(PROFILES[profile])
+        if applied:
+            self._current = profile
+        else:
             logger.warning(
-                "go_offline: set_network_connection(0) not supported by this "
-                "driver — network profile tracked in-memory only: %s",
+                "set_profile('%s'): command was rejected — current_profile stays '%s'",
+                profile.value,
+                self._current.value if self._current else None,
+            )
+        return bool(applied)
+
+    def go_offline(self) -> bool:
+        applied = self._set_connection(0, "go_offline")
+        if applied:
+            self._current = NetworkProfile.OFFLINE
+        return applied
+
+    def go_online(self) -> bool:
+        applied = self._set_connection(6, "go_online")
+        if applied:
+            self._current = NetworkProfile.WIFI
+        return applied
+
+    def _set_connection(self, bitmask: int, caller: str) -> bool:
+        try:
+            self._driver.set_network_connection(bitmask)
+            return True
+        except Exception as e:
+            rethrow_if_driver_dead(e)
+            logger.warning(
+                "%s: set_network_connection(%d) not supported by this driver — "
+                "network profile is NOT applied: %s",
+                caller,
+                bitmask,
                 e,
             )
+            return False
 
-    def go_online(self) -> None:
-        self._current = NetworkProfile.WIFI
-        try:
-            self._driver.set_network_connection(6)
-        except Exception as e:
-            logger.warning(
-                "go_online: set_network_connection(6) not supported by this driver: %s",
-                e,
-            )
-
-    def _apply(self, condition: NetworkCondition) -> None:
+    def _apply(self, condition: NetworkCondition) -> bool:
         try:
             self._driver.execute_script(
                 "mobile: setNetworkSpeed",
@@ -78,13 +115,16 @@ class NetworkSimulator:
                     "upload": condition.upload_speed,
                 },
             )
+            return True
         except Exception as e:
+            rethrow_if_driver_dead(e)
             logger.warning(
-                "_apply: mobile: setNetworkSpeed not supported — this command "
-                "requires a real device with network shaping (not all "
-                "emulators/simulators support it): %s",
+                "_apply: mobile: setNetworkSpeed not supported — bandwidth throttling "
+                "is not an Appium command on this driver, so the profile was NOT "
+                "applied (use an external shaper instead): %s",
                 e,
             )
+            return False
 
     @property
     def current_profile(self) -> NetworkProfile | None:

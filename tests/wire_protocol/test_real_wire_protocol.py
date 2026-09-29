@@ -214,9 +214,110 @@ class TestPermissionsRealWireFormat:
         req = wire_server.last_request("POST", "/execute/sync")
         assert req is not None
         assert req.body["script"] == "mobile: changePermissions"
-        assert req.body["args"][0]["permissions"] == ["camera"]
+        # На wire уходят настоящие константы Android: 'camera' драйвер не понимает.
+        assert req.body["args"][0]["permissions"] == ["android.permission.CAMERA"]
         assert req.body["args"][0]["action"] == "grant"
         assert req.body["args"][0]["appPackage"] == "com.example.app"
+
+
+@pytest.mark.wire_protocol
+class TestInterruptionRealWireFormat:
+    """
+    `mobile: shell` собирается драйвером в одну командную строку, а `emu`
+    попадает в Telnet-консоль эмулятора. Проверяем на проводе то, что mock
+    проверить не может: argv остаётся argv, а dangerous-значения не уходят
+    наружу вообще.
+    """
+
+    def test_multiword_sms_body_stays_one_argv_item(
+        self, wire_server: FakeWebDriverServer, wire_driver
+    ) -> None:
+        from mobius.utils.interruptions import InterruptionSimulator
+
+        assert InterruptionSimulator(wire_driver).incoming_sms(
+            "5551234567", "Order 42 is ready; call me"
+        )
+        req = wire_server.last_request("POST", "/execute/sync")
+        assert req is not None
+        assert req.body["script"] == "mobile: shell"
+        assert req.body["args"][0] == {
+            "command": "emu",
+            "args": ["sms", "send", "5551234567", "Order 42 is ready; call me"],
+        }
+
+    def test_newline_in_phone_number_never_reaches_the_wire(
+        self, wire_server: FakeWebDriverServer, wire_driver
+    ) -> None:
+        """
+        Перевод строки в консоли эмулятора = ещё одна команда. Такого значения
+        на провод не должно уходить даже в argv: проверка падает ДО запроса.
+        """
+        from mobius.utils.interruptions import InterruptionSimulator
+
+        with pytest.raises(ValueError, match="plain phone number"):
+            InterruptionSimulator(wire_driver).incoming_call("5551234\nsms send 1234")
+        assert wire_server.requests_matching("POST", "/execute/sync") == []
+
+    def test_broken_package_is_a_config_error_not_a_silent_false(
+        self, wire_server: FakeWebDriverServer
+    ) -> None:
+        """
+        Сломанное имя пакета — ошибка конфигурации, а не «команда не
+        поддержана эмулятором»: она должна вспать, а не превратиться в False,
+        который зелёный прогон не заметит.
+        """
+        from dataclasses import replace
+
+        from mobius.driver.appium_driver import create_driver
+        from mobius.driver.capabilities import pixel_6_api33
+        from mobius.utils.interruptions import InterruptionSimulator
+
+        caps = replace(pixel_6_api33(), app_package="com.example.app; rm -rf /")
+        driver = create_driver(caps, server_url=wire_server.url)
+        try:
+            with pytest.raises(ValueError, match="valid Android package name"):
+                InterruptionSimulator(driver).simulate_low_memory()
+            assert wire_server.requests_matching("POST", "/execute/sync") == []
+        finally:
+            driver.quit()
+
+
+@pytest.mark.wire_protocol
+class TestCloudAuthRealWireFormat:
+    """Креды облака должны быть Basic-заголовком, а не частью адреса."""
+
+    def test_credentials_from_url_become_authorization_header(
+        self, wire_server: FakeWebDriverServer
+    ) -> None:
+        import base64
+
+        from mobius.driver.appium_driver import create_driver, resolve_connection
+        from mobius.driver.capabilities import pixel_6_api33
+
+        url_with_creds = wire_server.url.replace("://", "://clouduser:cloudsecret@")
+        clean_url, client_config = resolve_connection(server_url=url_with_creds)
+        assert "@" not in clean_url
+        assert client_config is not None
+
+        driver = create_driver(pixel_6_api33(), server_url=url_with_creds)
+        try:
+            req = wire_server.last_request("POST", "/session")
+            assert req is not None
+            expected = base64.b64encode(b"clouduser:cloudsecret").decode()
+            assert req.headers["authorization"] == f"Basic {expected}"
+        finally:
+            driver.quit()
+
+        for recorded in wire_server.all_requests:
+            assert "cloudsecret" not in recorded.path
+            assert "cloudsecret" not in str(recorded.body)
+
+    def test_local_mode_sends_no_authorization_header(
+        self, wire_server: FakeWebDriverServer, wire_driver
+    ) -> None:
+        req = wire_server.last_request("POST", "/session")
+        assert req is not None
+        assert "authorization" not in req.headers
 
 
 @pytest.mark.wire_protocol

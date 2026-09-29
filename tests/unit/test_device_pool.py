@@ -50,6 +50,14 @@ class TestDevicePoolRegistration:
         d2 = pool.register("d2", Platform.ANDROID, "13.0", "D2")
         assert d2.system_port == DevicePool.SYSTEM_PORT_BASE + 1
 
+    def test_register_duplicate_udid_raises(self):
+        """Две записи об одном эмуляторе — это два worker'а на одном устройстве."""
+        pool = DevicePool()
+        pool.register("emulator-5554", Platform.ANDROID, "13.0", "Pixel 6")
+        with pytest.raises(ValueError, match="already registered"):
+            pool.register("emulator-5554", Platform.ANDROID, "13.0", "Pixel 6 clone")
+        assert len(pool) == 1
+
 
 @pytest.mark.unit
 class TestDevicePoolNoCollisions:
@@ -88,12 +96,15 @@ class TestDevicePoolWorkerAssignment:
         device = pool.get_for_worker("gw1")
         assert device.udid == "emulator-5556"
 
-    def test_get_for_worker_wraps_around(self):
-        """Больше worker'ов чем устройств — round-robin, не падение."""
+    def test_get_for_worker_more_workers_than_devices_raises(self):
+        """Round-robin по остатку выдал бы gw2 то же устройство и те же порты, что gw0."""
         pool = _make_pool(n_android=2, n_ios=0)
-        d_gw0 = pool.get_for_worker("gw0")
-        d_gw2 = pool.get_for_worker("gw2")  # 2 % 2 == 0
-        assert d_gw0.udid == d_gw2.udid
+        with pytest.raises(ValueError, match="needs device #2, but only 2"):
+            pool.get_for_worker("gw2")
+
+    def test_get_for_worker_accepts_last_valid_index(self):
+        pool = _make_pool(n_android=2, n_ios=0)
+        assert pool.get_for_worker("gw1").udid == "emulator-5556"
 
     def test_get_for_worker_none_returns_first_device(self):
         pool = _make_pool()

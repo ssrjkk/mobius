@@ -1,0 +1,68 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Monday 05:30 UTC — catches analyser/bundle updates on untouched code.
+    - cron: "30 5 * * 1"
+  workflow_dispatch:
+
+# Least privilege. `security-events: write` is the only elevated grant and is
+# required to upload SARIF; nothing here creates releases, deploys pages or
+# writes repository contents.
+permissions:
+  security-events: write
+  actions: read
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # From pyproject.toml: requires-python = ">=3.12"
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  analyze:
+    name: "Analyze (${{ matrix.language }})"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # `python` — the framework/ and tests/ source.
+        # `actions` — the workflow files in .github/workflows themselves.
+        language: [python, actions]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          languages: ${{ matrix.language }}
+
+      # Python is an interpreted language: no build step, only dependency
+      # resolution so that imports type-bind during extraction.
+      - name: Set up Python and uv
+        if: matrix.language == 'python'
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          activate-environment: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Install runtime dependencies (extraction only)
+        if: matrix.language == 'python'
+        run: uv pip install -e "."
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          category: "/language:${{ matrix.language }}"

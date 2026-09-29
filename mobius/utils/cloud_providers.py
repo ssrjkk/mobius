@@ -11,6 +11,17 @@ from mobius.logging_config import get_logger
 logger = get_logger(__name__)
 
 
+def _pool_key(device: str, version: str) -> str:
+    """Синтетический udid для облачной матрицы: облако не выдаёт serial'ов.
+
+    Только имя устройства недостаточно — одна и та же модель в матрице
+    обычно стоит под несколькими версиями ОС, а DevicePool отказывается
+    регистрировать повтор, потому что локально это два worker'а на одном
+    эмуляторе.
+    """
+    return f"{device}_{version}".replace(" ", "_").lower()
+
+
 class SauceLabsProvider:
     @staticmethod
     def build_pool(platforms: list[dict[str, str]]) -> DevicePool:
@@ -18,7 +29,7 @@ class SauceLabsProvider:
         for p in platforms:
             platform = Platform.ANDROID if p["platform"].lower() == "android" else Platform.IOS
             pool.register(
-                udid=p.get("udid", p["device"].replace(" ", "_").lower()),
+                udid=p.get("udid") or _pool_key(p["device"], p["version"]),
                 platform=platform,
                 platform_version=p["version"],
                 device_name=p["device"],
@@ -78,7 +89,7 @@ class BrowserStackProvider:
         for p in platforms:
             platform = Platform.ANDROID if p["platform"].lower() == "android" else Platform.IOS
             pool.register(
-                udid=p.get("device", "").replace(" ", "_").lower(),
+                udid=p.get("udid") or _pool_key(p["device"], p["os_version"]),
                 platform=platform,
                 platform_version=p["os_version"],
                 device_name=p["device"],

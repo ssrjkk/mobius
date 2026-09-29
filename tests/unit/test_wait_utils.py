@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
-from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
+from selenium.common.exceptions import (
+    NoSuchElementException,
+    StaleElementReferenceException,
+    TimeoutException,
+)
 
+from mobius.utils.retry_config import is_infrastructure_error
 from mobius.utils.wait_utils import RetryDecorator, WaitUtils
 
 
@@ -32,8 +39,20 @@ class TestWaitUtils:
         assert calls[0] == 3
 
     def test_condition_timeout(self):
-        with pytest.raises(TimeoutError):
+        with pytest.raises(TimeoutException):
             self.w.wait_for_condition(lambda: False, timeout=1, poll_frequency=0.1)
+
+    def test_condition_timeout_is_not_builtin(self):
+        """
+        Должно быть именно selenium-исключение: на него настроен
+        `--only-rerun=TimeoutException` в pyproject. Голый встроенный
+        TimeoutError не попадал ни в rerun-фильтр, ни в классификацию
+        retry_config, и инфраструктурный таймаут валил прогон как баг.
+        """
+        with pytest.raises(TimeoutException) as exc_info:
+            self.w.wait_for_condition(lambda: False, timeout=1, poll_frequency=0.1)
+        assert not isinstance(exc_info.value, TimeoutError)
+        assert is_infrastructure_error(exc_info.value) is True
 
     def test_condition_timeout_reraises_last_exception(self):
         with pytest.raises(NoSuchElementException):
@@ -147,3 +166,32 @@ class TestRetryDecoratorEdgeCase:
 
         assert f() == "ok"
         assert calls[0] == 1
+
+    def test_real_error_survives_optimized_mode(self, tmp_path):
+        """
+        Регрессия на `assert last_exc is not None`: под `python -O` assert
+        исчезает, и `raise None` давало `TypeError: exceptions must derive
+        from BaseException` вместо настоящей ошибки.
+        """
+        script = tmp_path / "retry_under_O.py"
+        script.write_text(
+            "from selenium.common.exceptions import StaleElementReferenceException\n"
+            "from mobius.utils.wait_utils import RetryDecorator\n"
+            "@RetryDecorator.retry(times=2, delay=0)\n"
+            "def f():\n"
+            "    raise StaleElementReferenceException('настоящая ошибка')\n"
+            "try:\n"
+            "    f()\n"
+            "except StaleElementReferenceException:\n"
+            "    print('OK_STALE')\n"
+            "except BaseException as e:\n"
+            "    print('BAD', type(e).__name__, e)\n",
+            encoding="utf-8",
+        )
+        result = subprocess.run(
+            [sys.executable, "-O", str(script)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert "OK_STALE" in result.stdout, f"stdout={result.stdout!r} stderr={result.stderr!r}"

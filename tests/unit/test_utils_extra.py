@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import MagicMock, patch
+from urllib.parse import parse_qs
 
 import pytest
 
@@ -11,6 +13,36 @@ from mobius.utils.deeplink import DeepLink
 from mobius.utils.network import PROFILES, NetworkCondition, NetworkProfile, NetworkSimulator
 from mobius.utils.performance import PerformanceCollector
 from mobius.utils.screenshot import ScreenshotUtils
+
+
+def _element(
+    tag: str,
+    *,
+    clickable: str = "false",
+    content_desc: str = "Hello",
+    resource_id: str = "txt",
+    text: str = "Hello",
+    width: int = 200,
+    height: int = 40,
+    displayed: bool = True,
+) -> MagicMock:
+    """WebElement-заглушка с читаемыми атрибутами для проверок доступности."""
+    elem = MagicMock()
+    elem.tag_name = tag
+    elem.text = text
+    elem.size = {"width": width, "height": height}
+    elem.is_displayed.return_value = displayed
+    attrs = {"clickable": clickable, "content-desc": content_desc, "resource-id": resource_id}
+    elem.get_attribute.side_effect = lambda key: attrs.get(key, "")
+    return elem
+
+
+def _text_elem(**kwargs: Any) -> MagicMock:
+    return _element("android.widget.TextView", **kwargs)
+
+
+def _image_elem(**kwargs: Any) -> MagicMock:
+    return _element("android.widget.ImageView", text="", content_desc="", **kwargs)
 
 
 @pytest.mark.unit
@@ -31,6 +63,25 @@ class TestDeepLink:
     def test_build_url_params_sorted(self):
         url = self.dl.build_url("x", {"b": "2", "a": "1"})
         assert url.index("a=1") < url.index("b=2")
+
+    def test_query_value_cannot_forge_extra_params(self):
+        url = self.dl.build_url("search", {"q": "shoes&free=true"})
+        assert url == "myapp://search?q=shoes%26free%3Dtrue"
+
+    def test_special_characters_survive_a_round_trip(self):
+        params = {"q": "one two", "tag": "a=b", "path": "x/y", "page": 2}
+        url = self.dl.build_url("search", params)
+        assert parse_qs(url.split("?", 1)[1]) == {
+            "q": ["one two"],
+            "tag": ["a=b"],
+            "path": ["x/y"],
+            "page": ["2"],
+        }
+
+    def test_path_cannot_inject_a_query(self):
+        url = self.dl.build_url("cart?page=2", {"ref": "ad"})
+        assert url.count("?") == 1
+        assert parse_qs(url.split("?", 1)[1]) == {"ref": ["ad"]}
 
     def test_open_calls_execute_script(self):
         self.dl.open("cart")
@@ -61,46 +112,67 @@ class TestNetworkSimulator:
         self.n = NetworkSimulator(self.d)
 
     def test_go_offline(self):
-        self.n.go_offline()
+        assert self.n.go_offline() is True
+        self.d.set_network_connection.assert_called_once_with(0)
         assert self.n.current_profile == NetworkProfile.OFFLINE
 
-    def test_go_offline_exception_swallowed(self):
+    def test_go_offline_failure_does_not_mark_device_offline(self):
+        """
+        Профиль описывает состояние устройства, а не намерение теста: если
+        команда не прошла, «offline» выставлен быть не может — иначе тест в
+        offline крутится на полностью связном устройстве и зелёный ничего не
+        проверяет.
+        """
         self.d.set_network_connection.side_effect = Exception("no api")
-        self.n.go_offline()
-        assert self.n.current_profile == NetworkProfile.OFFLINE
+        assert self.n.go_offline() is False
+        assert self.n.current_profile is None
 
     def test_go_online(self):
-        self.n.go_online()
+        assert self.n.go_online() is True
+        self.d.set_network_connection.assert_called_once_with(6)
         assert self.n.current_profile == NetworkProfile.WIFI
 
-    def test_go_online_exception_swallowed(self):
+    def test_go_online_failure_does_not_mark_device_online(self):
         self.d.set_network_connection.side_effect = Exception("no api")
-        self.n.go_online()
-        assert self.n.current_profile == NetworkProfile.WIFI
+        assert self.n.go_online() is False
+        assert self.n.current_profile is None
 
     def test_set_profile_lte(self):
-        with patch.object(self.n, "_apply"):
-            self.n.set_profile(NetworkProfile.LTE)
+        assert self.n.set_profile(NetworkProfile.LTE) is True
         assert self.n.current_profile == NetworkProfile.LTE
+        args = self.d.execute_script.call_args[0]
+        assert args[0] == "mobile: setNetworkSpeed"
+        assert args[1] == {"download": 10_000, "upload": 5_000}
 
     def test_set_profile_wifi(self):
-        with patch.object(self.n, "_apply"):
-            self.n.set_profile(NetworkProfile.WIFI)
+        assert self.n.set_profile(NetworkProfile.WIFI) is True
         assert self.n.current_profile == NetworkProfile.WIFI
 
     def test_set_profile_2g(self):
-        with patch.object(self.n, "_apply"):
-            self.n.set_profile(NetworkProfile.TWO_G)
+        assert self.n.set_profile(NetworkProfile.TWO_G) is True
         assert self.n.current_profile == NetworkProfile.TWO_G
 
     def test_set_profile_offline_calls_go_offline(self):
-        with patch.object(self.n, "go_offline") as m:
-            self.n.set_profile(NetworkProfile.OFFLINE)
-        m.assert_called_once()
+        self.n.set_profile(NetworkProfile.OFFLINE)
+        self.d.set_network_connection.assert_called_once_with(0)
+        assert self.n.current_profile == NetworkProfile.OFFLINE
 
-    def test_apply_exception_swallowed(self):
+    def test_set_profile_rejected_leaves_profile_untouched(self):
         self.d.execute_script.side_effect = Exception("not supported")
-        self.n._apply(PROFILES[NetworkProfile.LTE])
+        assert self.n.set_profile(NetworkProfile.THREE_G) is False
+        assert self.n.current_profile is None
+
+    def test_set_profile_from_offline_restores_connectivity_first(self):
+        """Любой профиль кроме OFFLINE означает связь: сначала online, потом скорость."""
+        self.n.go_offline()
+        assert self.n.set_profile(NetworkProfile.LTE) is True
+        calls = [c[0][0] for c in self.d.set_network_connection.call_args_list]
+        assert calls == [0, 6]
+        assert self.n.current_profile == NetworkProfile.LTE
+
+    def test_apply_exception_returns_false(self):
+        self.d.execute_script.side_effect = Exception("not supported")
+        assert self.n._apply(PROFILES[NetworkProfile.LTE]) is False
 
     def test_profiles_have_all_keys(self):
         for p in NetworkProfile:
@@ -183,6 +255,21 @@ class TestPerformanceCollector:
         with pytest.raises(AssertionError):
             self.p.assert_all_thresholds()
 
+    def test_frame_time_threshold_is_milliseconds(self):
+        """Порог в ms, поэтому ключ не должен называться «fps»."""
+        assert "frame_time" in PerformanceCollector.THRESHOLDS
+        assert "scroll_fps" not in PerformanceCollector.THRESHOLDS
+
+    def test_assert_all_thresholds_is_never_vacuously_green(self):
+        self.p.report.add("some_custom_step", 5.0)
+        with pytest.raises(AssertionError, match="without checking anything"):
+            self.p.assert_all_thresholds()
+
+    def test_unknown_metric_is_reported_but_does_not_fail(self):
+        self.p.report.add("some_custom_step", 5.0)
+        self.p.report.add("tap_response", 5.0)
+        self.p.assert_all_thresholds()  # падает только если не проверено ничего
+
 
 @pytest.mark.unit
 class TestA11yReport:
@@ -262,8 +349,7 @@ class TestAccessibilityChecker:
         assert report.passed > 0
 
     def test_check_element_small_touch_target(self):
-        checker = AccessibilityChecker(MagicMock())
-        report = A11yReport()
+        checker = AccessibilityChecker(MagicMock(), density_factor=1.0)
         elem = MagicMock()
         elem.tag_name = "android.widget.Button"
         elem.get_attribute.side_effect = lambda k: {
@@ -274,73 +360,90 @@ class TestAccessibilityChecker:
         elem.text = "OK"
         elem.is_displayed.return_value = True
         elem.size = {"width": 20, "height": 20}
-        checker._check_element(elem, report)
+        report = checker.check_element(elem)
         assert any("small" in v.issue for v in report.violations)
 
     def test_check_element_missing_content_desc_error(self):
-        checker = AccessibilityChecker(MagicMock())
-        report = A11yReport()
-        elem = MagicMock()
-        elem.tag_name = "android.widget.ImageView"
-        elem.get_attribute.side_effect = lambda k: {
-            "clickable": "true",
-            "content-desc": "",
-            "resource-id": "img",
-        }.get(k, "")
-        elem.text = ""
-        elem.is_displayed.return_value = True
-        elem.size = {"width": 100, "height": 100}
-        checker._check_element(elem, report)
+        checker = AccessibilityChecker(MagicMock(), density_factor=1.0)
+        report = checker.check_element(_image_elem())
         assert any(v.severity == "error" for v in report.violations)
 
     def test_check_element_image_missing_alt(self):
-        checker = AccessibilityChecker(MagicMock())
-        report = A11yReport()
-        elem = MagicMock()
-        elem.tag_name = "android.widget.ImageView"
-        elem.get_attribute.side_effect = lambda k: {
-            "clickable": "false",
-            "content-desc": "",
-            "resource-id": "img_hero",
-        }.get(k, "")
-        elem.text = ""
-        elem.is_displayed.return_value = True
-        elem.size = {"width": 200, "height": 200}
-        checker._check_element(elem, report)
+        checker = AccessibilityChecker(MagicMock(), density_factor=1.0)
+        elem = _image_elem(clickable="false", resource_id="img_hero")
+        report = checker.check_element(elem)
         assert any("Image" in v.issue for v in report.violations)
 
     def test_check_element_non_clickable_passes(self):
-        checker = AccessibilityChecker(MagicMock())
-        report = A11yReport()
-        elem = MagicMock()
-        elem.tag_name = "android.widget.TextView"
-        elem.get_attribute.side_effect = lambda k: {
-            "clickable": "false",
-            "content-desc": "Hello",
-            "resource-id": "txt",
-        }.get(k, "")
-        elem.text = "Hello"
-        elem.is_displayed.return_value = True
-        elem.size = {"width": 200, "height": 40}
-        checker._check_element(elem, report)
-        assert report.passed >= 1
+        checker = AccessibilityChecker(MagicMock(), density_factor=1.0)
+        report = checker.check_element(_text_elem())
+        assert report.passed == 1
+        assert report.violations == []
 
     def test_check_element_large_touch_target_ok(self):
-        checker = AccessibilityChecker(MagicMock())
-        report = A11yReport()
-        elem = MagicMock()
-        elem.tag_name = "android.widget.Button"
-        elem.get_attribute.side_effect = lambda k: {
-            "clickable": "true",
-            "content-desc": "Submit",
-            "resource-id": "btn_submit",
-        }.get(k, "")
-        elem.text = ""
-        elem.is_displayed.return_value = False
-        elem.size = {"width": 200, "height": 100}
-        checker._check_element(elem, report)
-        size_violations = [v for v in report.violations if "small" in v.issue]
-        assert len(size_violations) == 0
+        checker = AccessibilityChecker(MagicMock(), density_factor=1.0)
+        elem = _text_elem(clickable="true", resource_id="btn_submit", width=200, height=100)
+        report = checker.check_element(elem)
+        assert [v for v in report.violations if "small" in v.issue] == []
+
+    def test_clean_element_with_small_target_is_not_counted_as_passed(self):
+        """Один элемент — одна строка отчёта: зачёт и нарушение одновременно недопустимы."""
+        checker = AccessibilityChecker(MagicMock(), density_factor=1.0)
+        elem = _text_elem(
+            clickable="true", content_desc="Submit", resource_id="btn", width=10, height=10
+        )
+        report = checker.check_element(elem)
+        assert report.elements_checked == 1
+        assert report.passed == 0
+        assert len(report.violations) == 1
+
+    def test_stale_elements_are_out_of_the_counts(self):
+        d = MagicMock()
+        bad = MagicMock()
+        bad.get_attribute.side_effect = Exception("stale")
+        d.find_elements.return_value = [bad, _text_elem()]
+        checker = AccessibilityChecker(d, density_factor=1.0)
+        report = checker.check_screen()
+        assert report.elements_checked == 1
+        assert report.passed == 1
+
+    def test_touch_target_is_pixels_times_density_not_raw_pixels(self):
+        """100x100px на 420dpi — это 38dp: слишком мелко, хотя число больше 44."""
+        elem = _text_elem(clickable="true", content_desc="Buy", width=100, height=100)
+
+        dense = AccessibilityChecker(MagicMock(), density_factor=2.625).check_element(elem)
+        mdpi = AccessibilityChecker(MagicMock(), density_factor=1.0).check_element(elem)
+
+        assert any("small" in v.issue for v in dense.violations)
+        assert any("small" in v.issue for v in mdpi.violations) is False
+
+    def test_density_comes_from_the_device_and_is_cached(self):
+        d = MagicMock()
+        d.execute_script.return_value = {"stdout": "Physical density: 420", "stderr": ""}
+        checker = AccessibilityChecker(d)
+        elem = _text_elem(clickable="true", content_desc="Buy", width=100, height=100)
+
+        assert any("small" in v.issue for v in checker.check_element(elem).violations)
+        checker.check_element(elem)
+        assert d.execute_script.call_count == 1
+
+    def test_override_density_wins_over_physical(self):
+        d = MagicMock()
+        d.execute_script.return_value = "Physical density: 420\nOverride density: 160\n"
+        checker = AccessibilityChecker(d)
+        elem = _text_elem(clickable="true", content_desc="Buy", width=50, height=50)
+        assert checker.check_element(elem).passed == 1
+
+    def test_no_density_disables_the_size_rule(self, caplog: pytest.LogCaptureFixture):
+        d = MagicMock()
+        d.execute_script.side_effect = Exception("mobile: shell not supported")
+        checker = AccessibilityChecker(d)
+        elem = _text_elem(clickable="true", content_desc="Buy", width=1, height=1)
+
+        report = checker.check_element(elem)
+
+        assert report.violations == []
+        assert "density" in caplog.text.lower()
 
 
 @pytest.mark.unit
@@ -514,3 +617,188 @@ class TestDeepLinkPackageSafety:
         dl.open("home")
         call_args = d.execute_script.call_args[0]
         assert call_args[1]["package"] == "com.app.real"
+
+
+@pytest.mark.unit
+class TestShellSafety:
+    """
+    Аргументы `mobile: shell` — внешние данные из конфигов и фикстур.
+    Appium склеивает их в одну строку `adb shell`, а `mobile: shell emu`
+    попадает в Telnet-консоль эмулятора, где `\n` = «началась новая
+    команда». Передача списком поэтому не защита: проверка обязана
+    стоять на входе.
+    """
+
+    def test_valid_package_passes_through(self):
+        from mobius.utils.shell_safety import checked_package
+
+        assert checked_package("com.example.app", caller="t") == "com.example.app"
+
+    @pytest.mark.parametrize(
+        "package",
+        [
+            "com.example.app; rm -rf /",
+            "com.example.app && curl evil",
+            "com.example.app|wc",
+            "com.example.app\nsms send 5551234",
+            "not-a-package",
+            "1com.example.app",
+            "com",
+            "",
+            "  ",
+        ],
+    )
+    def test_package_that_is_not_a_package_is_refused(self, package):
+        from mobius.utils.shell_safety import checked_package
+
+        with pytest.raises(ValueError, match="valid Android package name"):
+            checked_package(package, caller="t")
+
+    @pytest.mark.parametrize("phone", ["5551234567", "+15551234567", "42"])
+    def test_plain_phone_passes_through(self, phone):
+        from mobius.utils.shell_safety import checked_phone
+
+        assert checked_phone(phone, caller="t") == phone
+
+    @pytest.mark.parametrize(
+        "phone",
+        [
+            "5551234567\nsms send 1234",
+            "5551234567 sms send 1234",
+            "555-123-4567",
+            "5551234567;",
+            "+5551234567\r",
+            "",
+            "abc",
+        ],
+    )
+    def test_phone_that_is_not_a_number_is_refused(self, phone):
+        from mobius.utils.shell_safety import checked_phone
+
+        with pytest.raises(ValueError, match="plain phone number"):
+            checked_phone(phone, caller="t")
+
+    def test_console_text_may_contain_spaces_and_punctuation(self):
+        from mobius.utils.shell_safety import checked_console_text
+
+        msg = "Order 42 is ready; call me back, ok?"
+        assert checked_console_text(msg, caller="t") == msg
+
+    @pytest.mark.parametrize("msg", ["hi\nsms send 5551234", "hi\rupdate exit", "hi\x00there"])
+    def test_console_text_with_control_char_is_refused(self, msg):
+        from mobius.utils.shell_safety import checked_console_text
+
+        with pytest.raises(ValueError, match="control character"):
+            checked_console_text(msg, caller="t")
+
+    def test_error_message_names_the_caller(self):
+        """Без caller непонятно какой хелпер отказал — это же и диагностика в CI."""
+        from mobius.utils.shell_safety import checked_package
+
+        with pytest.raises(ValueError, match="simulate_low_memory"):
+            checked_package("bad name", caller="simulate_low_memory")
+
+
+@pytest.mark.unit
+class TestReadCapability:
+    """
+    `str(caps.get(k))` превращает MagicMock или dict в осмысленную на вид
+    строку, и модуль начинает сообщать capability, которого нет. Проверка
+    типа здесь — единственное, что отличает «задан» от «мусор на входе».
+    """
+
+    def test_reads_preferring_first_key(self):
+        from mobius.utils.capability import read_capability
+
+        d = MagicMock()
+        d.capabilities = {"appium:appPackage": "com.first", "appPackage": "com.second"}
+        assert read_capability(d, "appium:appPackage", "appPackage", caller="t") == "com.first"
+
+    def test_falls_back_to_legacy_key(self):
+        from mobius.utils.capability import read_capability
+
+        d = MagicMock()
+        d.capabilities = {"appPackage": "com.legacy"}
+        assert read_capability(d, "appium:appPackage", "appPackage", caller="t") == "com.legacy"
+
+    def test_strips_surrounding_whitespace(self):
+        from mobius.utils.capability import read_capability
+
+        d = MagicMock()
+        d.capabilities = {"appium:app": "  /tmp/app.apk  "}
+        assert read_capability(d, "appium:app", caller="t") == "/tmp/app.apk"
+
+    def test_empty_value_is_skipped_not_returned(self):
+        from mobius.utils.capability import read_capability
+
+        d = MagicMock()
+        d.capabilities = {"appium:appPackage": "", "appPackage": "com.real"}
+        assert read_capability(d, "appium:appPackage", "appPackage", caller="t") == "com.real"
+
+    def test_missing_key_returns_empty(self):
+        from mobius.utils.capability import read_capability
+
+        d = MagicMock()
+        d.capabilities = {"platformName": "Android"}
+        assert read_capability(d, "appium:appPackage", caller="t") == ""
+
+    def test_non_mapping_capabilities_returns_empty(self):
+        from mobius.utils.capability import read_capability
+
+        d = MagicMock()
+        d.capabilities = MagicMock()
+        assert read_capability(d, "appium:appPackage", caller="t") == ""
+
+    def test_non_string_value_is_ignored_not_stringified(self):
+        from mobius.utils.capability import read_capability
+
+        d = MagicMock()
+        d.capabilities = {"appium:appPackage": {"nested": "dict"}}
+        assert read_capability(d, "appium:appPackage", caller="t") == ""
+
+    def test_unreadable_capabilities_returns_empty(self):
+        from mobius.utils.capability import read_capability
+
+        d = MagicMock()
+        type(d).capabilities = property(lambda self: (_ for _ in ()).throw(Exception("boom")))
+        assert read_capability(d, "appium:appPackage", caller="t") == ""
+
+
+@pytest.mark.unit
+class TestNetworkDeadDriver:
+    """
+    «Профиль не применился» и «драйвера больше нет» обязаны различаться:
+    иначе тест в offline на мёртвой сессии выглядит как корректный негатив.
+    """
+
+    def test_go_offline_rethrows_dead_session(self):
+        from selenium.common.exceptions import InvalidSessionIdException
+
+        d = MagicMock()
+        d.set_network_connection.side_effect = InvalidSessionIdException("invalid session id 'x'")
+        sim = NetworkSimulator(d)
+        with pytest.raises(InvalidSessionIdException):
+            sim.go_offline()
+        assert sim.current_profile is None
+
+    def test_set_profile_rethrows_transport_failure(self):
+        d = MagicMock()
+        d.execute_script.side_effect = OSError("[Errno 111] Connection refused")
+        sim = NetworkSimulator(d)
+        with pytest.raises(OSError):
+            sim.set_profile(NetworkProfile.THREE_G)
+        assert sim.current_profile is None
+
+    def test_leaving_offline_rethrows_instead_of_claiming_a_profile(self):
+        from selenium.common.exceptions import InvalidSessionIdException
+
+        d = MagicMock()
+        sim = NetworkSimulator(d)
+        assert sim.go_offline() is True
+        d.set_network_connection.side_effect = InvalidSessionIdException("invalid session id 'x'")
+
+        with pytest.raises(InvalidSessionIdException):
+            sim.set_profile(NetworkProfile.LTE)
+
+        # Сессия мертва — прогон обязан упасть, а не остаться со «stable offline».
+        assert sim.current_profile is NetworkProfile.OFFLINE

@@ -78,7 +78,8 @@ class TestCheckAppiumServer:
         with patch("mobius.cli.diagnostics.is_appium_available", return_value=False):
             result = check_appium_server()
         assert result.status == Status.WARNING
-        assert "appium --base-path" in result.detail
+        assert "APPIUM_SERVER_URL" in result.detail
+        assert "4723" in result.detail
 
     def test_uses_custom_url(self):
         with patch("mobius.cli.diagnostics.is_appium_available", return_value=True) as m:
@@ -236,7 +237,10 @@ class TestBuildParser:
         parser = build_parser()
         args = parser.parse_args(["doctor"])
         assert args.command == "doctor"
-        assert args.appium_url == "http://localhost:4723"
+        # None = адрес выбирает default_server_url() во время прогона,
+        # иначе APPIUM_SERVER_URL, заданный уже после разбора аргументов,
+        # игнорировался бы захардкоженным дефолтом.
+        assert args.appium_url is None
 
     def test_doctor_custom_appium_url(self):
         parser = build_parser()

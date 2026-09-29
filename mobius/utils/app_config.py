@@ -77,7 +77,7 @@ class AppConfig:
     def load(cls, path: str | Path) -> AppConfig:
         """Загружает конфиг из .yaml/.yml или .json файла."""
         p = Path(path)
-        text = p.read_text()
+        text = p.read_text(encoding="utf-8")
 
         if p.suffix in (".yaml", ".yml"):
             try:
@@ -91,17 +91,25 @@ class AppConfig:
         else:
             data = json.loads(text)
 
+        if not isinstance(data, dict):
+            raise ValueError(
+                f"Config '{p}' must contain a mapping at the top level, got {type(data).__name__}"
+            )
+
         return cls.from_dict(data)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AppConfig:
+        name = data.get("name")
+        if not name:
+            raise ValueError("App config requires a non-empty 'name' field")
         locators_raw = data.get("locators", {})
         locators = {
             key: LocatorSpec(strategy=v["strategy"], value=v["value"])
             for key, v in locators_raw.items()
         }
         return cls(
-            name=data["name"],
+            name=name,
             platform=data.get("platform", "Android"),
             platform_version=data.get("platform_version", "13.0"),
             device_name=data.get("device_name", "Pixel 6"),

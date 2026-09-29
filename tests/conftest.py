@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import socket
 from collections.abc import Generator
 from typing import Any
 
@@ -12,14 +11,14 @@ import pytest
 
 
 def _appium_available() -> bool:
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(1.0)
-        s.connect(("127.0.0.1", 4723))
-        s.close()
-        return True
-    except OSError:
-        return False
+    """Жив ли сервер — по тому же адресу, по которому пойдёт сессия.
+
+    Харкод 127.0.0.1:4723 разошёлся бы с APPIUM_SERVER_URL: тесты либо
+    пропускались бы при поднятом сервере, либо стартовали против мёртвого.
+    """
+    from mobius.driver.appium_driver import is_appium_available
+
+    return is_appium_available()
 
 
 APPIUM_UP = _appium_available()
@@ -33,14 +32,20 @@ def _build_device_pool():  # type: ignore[return]
     from mobius.driver.device_pool import DevicePool
 
     pool = DevicePool()
-    # Пример: один Android-эмулятор (дефолт для локальной разработки)
-    # В CI с матрицей устройств: читай из ENV или конфига
-    pool.register(
-        udid=os.environ.get("DEVICE_UDID", "emulator-5554"),
-        platform=Platform.ANDROID,
-        platform_version=os.environ.get("PLATFORM_VERSION", "13.0"),
-        device_name=os.environ.get("DEVICE_NAME", "Pixel 6"),
-    )
+    # DEVICE_UDIDS — список через запятую, когда на раннере несколько
+    # эмуляторов; DEVICE_UDID — один дефолт для локальной разработки.
+    udids = [
+        u.strip()
+        for u in os.environ.get("DEVICE_UDIDS", os.environ.get("DEVICE_UDID", "")).split(",")
+        if u.strip()
+    ] or ["emulator-5554"]
+    for udid in udids:
+        pool.register(
+            udid=udid,
+            platform=Platform.ANDROID,
+            platform_version=os.environ.get("PLATFORM_VERSION", "13.0"),
+            device_name=os.environ.get("DEVICE_NAME", "Pixel 6"),
+        )
     pool.assert_no_port_collisions()
     return pool
 
@@ -66,7 +71,12 @@ def driver(device_pool, request: pytest.FixtureRequest) -> Generator[Any, None, 
     - Порты гарантированно уникальны между параллельными worker'ами
     """
     if not APPIUM_UP:
-        pytest.skip("Appium server not running — start with: appium --base-path /wd/hub")
+        from mobius.driver.appium_driver import default_server_url
+
+        pytest.skip(
+            f"Appium server not reachable at {default_server_url()} — "
+            f"start it with `appium` or point APPIUM_SERVER_URL at the running server"
+        )
 
     from mobius.driver.appium_driver import create_driver
     from mobius.driver.capabilities import (

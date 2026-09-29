@@ -16,6 +16,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from selenium.common.exceptions import InvalidSessionIdException
 
 from mobius.utils.app_config import AppConfig, ConfigDrivenScreen, LocatorSpec
 from mobius.utils.app_lifecycle import AppInstaller
@@ -354,6 +355,38 @@ class TestFileTransfer:
         result = self.ft.pull_folder("/sdcard/x", str(tmp_path))
         assert result is False
 
+    def test_pull_folder_skips_unsafe_zip_member(self, tmp_path):
+        """Path traversal attack — zip member с '../' должен быть пропущен."""
+        import zipfile
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("safe.txt", "safe content")
+            zf.writestr("../escape.txt", "malicious content")
+        self.d.pull_folder.return_value = base64.b64encode(buf.getvalue()).decode()
+
+        out_dir = tmp_path / "extracted"
+        result = self.ft.pull_folder("/sdcard/folder", str(out_dir))
+        assert result is True
+        assert (out_dir / "safe.txt").exists()
+        assert not (out_dir.parent / "escape.txt").exists()
+
+    def test_pull_folder_handles_directory_in_zip(self, tmp_path):
+        """Zip с директориями — должны создаться без ошибок."""
+        import zipfile
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.mkdir("subdir/")
+            zf.writestr("subdir/file.txt", "nested content")
+        self.d.pull_folder.return_value = base64.b64encode(buf.getvalue()).decode()
+
+        out_dir = tmp_path / "extracted"
+        result = self.ft.pull_folder("/sdcard/folder", str(out_dir))
+        assert result is True
+        assert (out_dir / "subdir").is_dir()
+        assert (out_dir / "subdir" / "file.txt").read_text() == "nested content"
+
     def test_file_exists_on_device_true(self):
         self.d.pull_file.return_value = base64.b64encode(b"data").decode()
         assert self.ft.file_exists_on_device("/sdcard/exists.txt") is True
@@ -428,6 +461,37 @@ class TestDeviceLogCollector:
         self.d.get_log.return_value = [{"message": "FATAL EXCEPTION: crash"}]
         with pytest.raises(AssertionError, match="CRASH DETECTED"):
             self.logs.assert_no_crash()
+
+    def test_assert_no_crash_is_not_green_when_no_logs_were_read(self):
+        """
+        get_log не поддержан драйвером → [] → «крашей нет». Без проверки
+        прочитанных строк шаг всегда зелёный и ничего не измеряет.
+        """
+        self.d.get_log.side_effect = Exception("logcat is not supported")
+        with pytest.raises(AssertionError, match="vacuous"):
+            self.logs.assert_no_crash()
+
+    def test_assert_no_crash_is_not_green_when_filter_matched_nothing(self):
+        self.d.get_log.return_value = [{"message": "com.other.app FATAL EXCEPTION"}]
+        with pytest.raises(AssertionError, match="none"):
+            self.logs.assert_no_crash(app_package="com.myapp")
+
+    def test_assert_no_crash_require_logs_false_accepts_empty_logs(self):
+        self.d.get_log.return_value = []
+        self.logs.assert_no_crash(require_logs=False)
+
+    def test_check_for_crash_reports_how_much_it_examined(self):
+        self.d.get_log.return_value = [
+            {"message": "com.myapp ok"},
+            {"message": "com.other crash"},
+        ]
+        report = self.logs.check_for_crash(app_package="com.myapp")
+        assert (report.lines_read, report.lines_checked) == (2, 1)
+
+    def test_get_logs_rethrows_dead_driver(self):
+        self.d.get_log.side_effect = OSError("[Errno 10054] Remote host closed the connection")
+        with pytest.raises(OSError):
+            self.logs.get_logs()
 
     def test_find_errors_filters_by_level(self):
         self.d.get_log.return_value = [
@@ -549,6 +613,20 @@ class TestInterruptionSimulator:
         result = self.interrupt.incoming_sms("5551111111", "Hello")
         assert result is True
 
+    def test_incoming_sms_keeps_the_message_as_one_argument(self):
+        """split() по пути резал многословный текст на отдельные аргументы консоли."""
+        self.interrupt.incoming_sms("5551111111", "Your code is 1234")
+        payload = self.d.execute_script.call_args[0][1]
+        assert payload["command"] == "emu"
+        assert payload["args"] == ["sms", "send", "5551111111", "Your code is 1234"]
+
+    def test_failure_log_omits_phone_and_message(self, caplog: pytest.LogCaptureFixture):
+        self.d.execute_script.side_effect = Exception("session died")
+        assert self.interrupt.incoming_sms("5551111111", "Your code is 1234") is False
+        assert "5551111111" not in caplog.text
+        assert "1234" not in caplog.text
+        assert "sms send" in caplog.text
+
     def test_set_battery_level_clamps_upper(self):
         self.interrupt.set_battery_level(150)
         args = self.d.execute_script.call_args[0]
@@ -583,6 +661,21 @@ class TestInterruptionSimulator:
     def test_shell_exception_returns_false(self):
         self.d.execute_script.side_effect = Exception("emulator only")
         assert self.interrupt.incoming_call() is False
+
+    def test_dead_session_is_not_reported_as_unsupported_emulator(self):
+        """
+        'Команда не поддержана эмулятором' и 'сессии больше нет' — разные
+        исходы: второй обязан ронять прогон, иначе тест на прерывание
+        заканчивается зелёным без единой отправленной команды.
+        """
+        self.d.execute_script.side_effect = InvalidSessionIdException("invalid session id 'x'")
+        with pytest.raises(InvalidSessionIdException):
+            self.interrupt.incoming_call()
+
+    def test_low_memory_rethrows_dead_session(self):
+        self.d.execute_script.side_effect = OSError("[Errno 10054] Remote host closed")
+        with pytest.raises(OSError):
+            self.interrupt.simulate_low_memory()
 
 
 # ── AppInstaller ─────────────────────────────────────────────────────────────

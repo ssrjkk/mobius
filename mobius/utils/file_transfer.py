@@ -12,6 +12,7 @@ inspect.signature подтверждает сигнатуры на устано�
 from __future__ import annotations
 
 import base64
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -73,15 +74,36 @@ class FileTransfer:
             return False
 
     def pull_folder(self, device_path: str, local_path: str) -> bool:
-        """Скачивает содержимое папки устройства как zip и распаковывает локально."""
+        """Скачивает содержимое папки устройства как zip и распаковывает локально.
+
+        Архив приходит С УСТРОЙСТВА, то есть из недоверенного источника:
+        member'ы вида '../../etc/x' записали бы файл за пределы local_path
+        (Zip Slip / CWE-22). Каждый member валидируется до записи.
+        """
         try:
             import io
             import zipfile
 
             encoded = self._driver.pull_folder(device_path)
             data = base64.b64decode(encoded)
+            dest = Path(local_path).resolve()
+            dest.mkdir(parents=True, exist_ok=True)
             with zipfile.ZipFile(io.BytesIO(data)) as zf:
-                zf.extractall(local_path)
+                for member in zf.infolist():
+                    target = (dest / member.filename).resolve()
+                    if not target.is_relative_to(dest):
+                        logger.warning(
+                            "pull_folder('%s'): skipped unsafe zip member '%s'",
+                            device_path,
+                            member.filename,
+                        )
+                        continue
+                    if member.is_dir():
+                        target.mkdir(parents=True, exist_ok=True)
+                        continue
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(member) as src, target.open("wb") as out:
+                        shutil.copyfileobj(src, out)
             return True
         except Exception as e:
             logger.warning("pull_folder('%s' -> '%s') failed: %s", device_path, local_path, e)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from selenium.common.exceptions import InvalidSessionIdException, WebDriverException
 
 from mobius.driver.capabilities import ResetStrategy
 from mobius.utils.test_isolation import AppResetHelper
@@ -118,14 +119,26 @@ class TestIsolationClearData:
         result = h.clear_app_data()
         assert result is False
 
+    def test_clear_app_data_returns_false_when_activate_fails_after_pm_clear(self):
+        """pm clear succeeded, but activate_app failed — test should not continue."""
+        d, h = _helper(activate_fails=True)
+        result = h.clear_app_data()
+        assert result is False
+        d.execute_script.assert_called_once()
+        d.activate_app.assert_called_once()
+
 
 @pytest.mark.unit
 class TestResetEdgeCases:
-    def test_unknown_strategy_returns_false(self):
-        d, h = _helper()
-        # Используем string напрямую — не из enum
-        result = h.reset("unknown_strategy")  # type: ignore[arg-type]
-        assert result is False
+    def test_unknown_strategy_is_an_error_not_a_quiet_pass(self):
+        """
+        `return False` для неизвестной стратегии неотличим от «драйвер не
+        поддержал сброс» — конфиг с опечаткой продолжил бы тест в грязном
+        состоянии приложения.
+        """
+        _, h = _helper()
+        with pytest.raises(ValueError, match="Unknown reset strategy"):
+            h.reset("unknown_strategy")  # type: ignore[arg-type]
 
     def test_no_reset_strategy_returns_true_no_driver_calls(self):
         d, h = _helper()
@@ -139,3 +152,44 @@ class TestResetEdgeCases:
         d.install_app.side_effect = Exception("no space left on device")
         result = h.reset(ResetStrategy.FULL_RESET)
         assert result is False
+
+
+@pytest.mark.unit
+class TestDeadDriverIsNotASkippedReset:
+    """
+    Сброс состояния — предпосылка изоляции тестов. Если драйвер умер,
+    «сброс не выполнен» и «сброс не нужен» должны различаться: иначе
+    следующий тест стартует на мёртвой сессии и провал припишется приложению.
+    """
+
+    @pytest.mark.parametrize("strategy", [ResetStrategy.TERMINATE, ResetStrategy.FULL_RESET])
+    def test_reset_rethrows_dead_session(self, strategy):
+        d, h = _helper()
+        d.terminate_app.side_effect = InvalidSessionIdException("invalid session id 'x'")
+        d.remove_app.side_effect = InvalidSessionIdException("invalid session id 'x'")
+        with pytest.raises(InvalidSessionIdException):
+            h.reset(strategy)
+
+    def test_activate_failure_on_dead_driver_rethrows(self):
+        d, h = _helper()
+        d.activate_app.side_effect = OSError("[Errno 10054] Remote host closed the connection")
+        with pytest.raises(OSError):
+            h.reset(ResetStrategy.TERMINATE)
+
+    def test_full_reset_rethrows_before_reinstall(self):
+        d, h = _helper()
+        d.install_app.side_effect = WebDriverException(msg="invalid session id 'abc'")
+        with pytest.raises(WebDriverException):
+            h.reset(ResetStrategy.FULL_RESET)
+
+    def test_clear_app_data_rejects_package_that_is_not_a_package(self):
+        """`pm clear` собирает аргументы в одну строку `adb shell`."""
+        broken = AppResetHelper(MagicMock(), "com.example.app; rm -rf /")
+        with pytest.raises(ValueError, match="valid Android package name"):
+            broken.clear_app_data()
+
+    def test_clear_app_data_rethrows_dead_driver(self):
+        d, h = _helper()
+        d.execute_script.side_effect = InvalidSessionIdException("invalid session id")
+        with pytest.raises(InvalidSessionIdException):
+            h.clear_app_data()

@@ -47,8 +47,8 @@ test-ui-parallel: ## UI тесты параллельно через DevicePool 
 
 # ── Инструменты ──────────────────────────────────────────────────────────────
 
-appium-start: ## Запустить локальный Appium сервер
-	appium --base-path /wd/hub
+appium-start: ## Запустить локальный Appium сервер (4723, без base-path — как ожидает Mobius)
+	appium
 
 lint: ## ruff + mypy
 	ruff check mobius/ tests/
@@ -60,13 +60,13 @@ fmt: ## Автоформатирование ruff
 security: ## bandit (SAST) + pip-audit (dependency CVEs) — изолированный venv
 	bandit -r mobius/ -c pyproject.toml
 	@echo "--- pip-audit (требует изолированный venv, см. docs/adr/004) ---"
-	@python3 -m venv /tmp/mqf_audit_venv 2>/dev/null || true
-	/tmp/mqf_audit_venv/bin/pip install -e . pip-audit --quiet --upgrade pip
-	/tmp/mqf_audit_venv/bin/pip-audit
+	@python3 -m venv /tmp/mobius_audit_venv 2>/dev/null || true
+	/tmp/mobius_audit_venv/bin/pip install -e . pip-audit --quiet --upgrade pip
+	/tmp/mobius_audit_venv/bin/pip-audit
 
 cov: ## Coverage report — unit + api + wire
 	pytest tests/unit/ tests/api/ tests/wire_protocol/ \
-		--cov=framework --cov-report=term-missing --cov-report=html:reports/htmlcov
+		--cov=mobius --cov-report=term-missing --cov-report=html:reports/htmlcov
 
 cov-open: cov ## Coverage report + открыть в браузере
 	python -m webbrowser reports/htmlcov/index.html
