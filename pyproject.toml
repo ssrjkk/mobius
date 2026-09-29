@@ -31,7 +31,7 @@ dependencies = [
     # allure-pytest тянет весь pytest как транзитивную зависимость, что
     # заставило бы команды на unittest/Robot Framework тащить чужой test
     # runner только ради screenshot attach. Сам pytest-плагин — в [test] extras.
-    "allure-python-commons>=2.16.1",
+    "allure-python-commons>=2.16.2",
     "Pillow>=12.3.0",          # visual_regression.py
     "pyyaml>=6.0.3",           # app_config.py — YAML конфиги приложений
     "requests>=2.34.2",        # appium_driver.py — is_appium_available()
@@ -49,12 +49,12 @@ test = [
     # которая просто использует Mobius как библиотеку в своих тестах.
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
-    "pytest-mock>=3.15.1",
+    "pytest-mock>=3.16.0",
     "pytest-rerunfailures>=16.7",
     "pytest-timeout>=2.4.0",
     "pytest-xdist>=3.8.0",
-    "allure-pytest>=2.16.1",   # pytest-плагин для генерации Allure отчётов
-    "faker>=40.39.0",
+    "allure-pytest>=2.16.2",   # pytest-плагин для генерации Allure отчётов
+    "faker>=40.40.0",
     "factory-boy>=3.3.3",
     "httpx>=0.28.1",
     "respx>=0.23.1",
