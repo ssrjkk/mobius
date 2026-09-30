@@ -160,7 +160,10 @@ class TestConfigureRerunFilterRealIntegration:
         test_file.write_text("def test_fails():\n    assert False, 'genuine bug'\n")
 
         result = subprocess.run(
-            [sys.executable, "-m", "pytest", str(test_file), "--reruns", "3", "-v", "-o", "addopts="],
+            [
+                sys.executable, "-m", "pytest", str(test_file),
+                "--reruns", "3", "-v", "-o", "addopts=",
+            ],
             capture_output=True,
             text=True,
             cwd=str(tmp_path),
@@ -198,7 +201,10 @@ class TestConfigureRerunFilterRealIntegration:
         )
 
         result = subprocess.run(
-            [sys.executable, "-m", "pytest", str(test_file), "--reruns", "3", "-v", "-o", "addopts="],
+            [
+                sys.executable, "-m", "pytest", str(test_file),
+                "--reruns", "3", "-v", "-o", "addopts=",
+            ],
             capture_output=True,
             text=True,
             cwd=str(tmp_path),

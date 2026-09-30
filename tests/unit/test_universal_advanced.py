@@ -926,6 +926,25 @@ class TestAppConfig:
         assert config.name == "json_app"
         assert config.app_package == "com.json.test"
 
+    def test_load_non_dict_json_raises_value_error(self, tmp_path):
+        """AppConfig.load: JSON-массив вместо dict → ValueError с понятным сообщением."""
+        import json
+
+        json_path = tmp_path / "bad_config.json"
+        json_path.write_text(json.dumps([1, 2, 3]))
+        with pytest.raises(ValueError, match="must contain a mapping"):
+            AppConfig.load(json_path)
+
+    def test_from_dict_empty_name_raises_value_error(self):
+        """AppConfig.from_dict: пустой name → ValueError."""
+        with pytest.raises(ValueError, match="non-empty 'name'"):
+            AppConfig.from_dict({"platform": "Android"})
+
+    def test_from_dict_missing_name_raises_value_error(self):
+        """AppConfig.from_dict: name отсутствует → ValueError."""
+        with pytest.raises(ValueError, match="non-empty 'name'"):
+            AppConfig.from_dict({"app_package": "com.test"})
+
     def test_load_from_yaml_file(self, tmp_path):
         yaml_content = """
 name: yaml_app

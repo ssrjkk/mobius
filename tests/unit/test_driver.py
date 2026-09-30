@@ -201,3 +201,37 @@ class TestCloudCredentials:
         username, key = cloud_credentials(ServerMode.BROWSER_STACK)
         assert username == "bs_user"
         assert key == "bs_key"
+
+
+@pytest.mark.unit
+class TestResolveConnection:
+    """resolve_connection: креды из URL когда env-переменных нет → warning."""
+
+    def test_credentials_from_url_warns_and_uses_them(self, monkeypatch, caplog):
+        """Облачный режим без env-переменных, но с кредами в URL → warning + Basic-авторизация."""
+        import logging
+
+        from mobius.driver.appium_driver import ServerMode, resolve_connection
+
+        monkeypatch.delenv("SAUCE_USERNAME", raising=False)
+        monkeypatch.delenv("SAUCE_ACCESS_KEY", raising=False)
+
+        with caplog.at_level(logging.WARNING):
+            url, config = resolve_connection(
+                mode=ServerMode.SAUCE_LABS,
+                server_url="http://myuser:mypass@hub.example.com/wd/hub",
+            )
+
+        assert url == "http://hub.example.com/wd/hub"
+        assert config is not None
+        assert config.username == "myuser"
+        assert config.password == "mypass"
+        assert "credentials taken from server_url" in caplog.text
+
+    def test_no_credentials_returns_none_config(self):
+        """Локальный режим без кредов → config is None."""
+        from mobius.driver.appium_driver import ServerMode, resolve_connection
+
+        url, config = resolve_connection(mode=ServerMode.LOCAL)
+        assert url == "http://localhost:4723"
+        assert config is None

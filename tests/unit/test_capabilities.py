@@ -7,6 +7,7 @@ import pytest
 from mobius.driver.capabilities import (
     AutomationName,
     Platform,
+    app_reference,
     from_env,
     iphone_15_ios17,
     pixel_6_api33,
@@ -183,3 +184,36 @@ class TestPackageVersion:
             import mobius
 
             assert mobius.__version__ != "0.0.0+unknown"
+
+
+@pytest.mark.unit
+class TestAppReference:
+    """app_reference: облачные схемы не должны проходить через Path.resolve()."""
+
+    def test_browserstack_app_id_unchanged(self):
+        assert app_reference("bs://abc123def.apk") == "bs://abc123def.apk"
+
+    def test_sauce_storage_id_unchanged(self):
+        assert app_reference("sauce-storage:my-app.apk") == "sauce-storage:my-app.apk"
+
+    def test_https_url_unchanged(self):
+        assert app_reference("https://example.com/app.apk") == "https://example.com/app.apk"
+
+    def test_http_url_unchanged(self):
+        assert app_reference("http://example.com/app.apk") == "http://example.com/app.apk"
+
+    def test_s3_url_unchanged(self):
+        assert app_reference("s3://bucket/app.apk") == "s3://bucket/app.apk"
+
+    def test_file_url_unchanged(self):
+        assert app_reference("file:///path/to/app.apk") == "file:///path/to/app.apk"
+
+    def test_local_path_is_resolved(self, tmp_path):
+        apk = tmp_path / "app.apk"
+        apk.write_bytes(b"x")
+        result = app_reference(str(apk))
+        assert result == str(apk.resolve())
+
+    def test_tilde_is_expanded(self):
+        result = app_reference("~/app.apk")
+        assert "~" not in result
