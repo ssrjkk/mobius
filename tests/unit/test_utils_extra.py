@@ -445,6 +445,27 @@ class TestAccessibilityChecker:
         assert report.violations == []
         assert "density" in caplog.text.lower()
 
+    def test_check_element_stale_element_returns_empty_report(self):
+        """check_element: stale element во время проверки → пустой отчёт, не падает."""
+        checker = AccessibilityChecker(MagicMock(), density_factor=1.0)
+        elem = MagicMock()
+        elem.tag_name = "android.widget.Button"
+        elem.get_attribute.side_effect = Exception("stale element reference")
+        report = checker.check_element(elem)
+        assert report.violations == []
+        assert report.passed == 0
+        assert report.elements_checked == 0
+
+    def test_clickable_without_content_desc_and_text_is_error(self):
+        """Кликабельный элемент без text И без content-desc — error."""
+        checker = AccessibilityChecker(MagicMock(), density_factor=1.0)
+        elem = _element("android.widget.Button", clickable="true", content_desc="", text="")
+        report = checker.check_element(elem)
+        assert any(
+            "missing content-desc" in v.issue and v.severity == "error"
+            for v in report.violations
+        )
+
 
 @pytest.mark.unit
 class TestScreenshotUtils:
