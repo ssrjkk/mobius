@@ -156,7 +156,7 @@ pip install -e ".[test]"
 
 ## Документация
 
-- **[USAGE.md](USAGE.md)** — подробное руководство по использованию с примерами
+- **[USAGE.md](docs/USAGE.md)** — подробное руководство по использованию с примерами
 - **[README.md](README.md)** — English version
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — как контрибьютить
 - **[SECURITY.md](SECURITY.md)** — политика безопасности

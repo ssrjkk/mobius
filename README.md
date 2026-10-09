@@ -156,7 +156,7 @@ pip install -e ".[test]"
 
 ## Documentation
 
-- **[USAGE.md](USAGE.md)** — detailed usage guide with examples
+- **[USAGE.md](docs/USAGE.md)** — detailed usage guide with examples
 - **[README.ru.md](README.ru.md)** — русская версия
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — contribution guidelines
 - **[SECURITY.md](SECURITY.md)** — security policy
@@ -166,3 +166,18 @@ pip install -e ".[test]"
 
 **Sergey Sitnikov**
 GitHub: [@ssrjkk](https://github.com/ssrjkk)
+
+
+## Installation
+
+```bash
+git clone https://github.com/ssrjkk/mobius.git
+cd mobius
+pip install -r requirements.txt
+```
+
+## Usage
+
+```bash
+python main.py
+```
