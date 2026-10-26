@@ -61,7 +61,7 @@ test = [
     "pact-python>=3.4.1",
 ]
 lint = [
-    "ruff>=0.16.10",
+    "ruff>=0.17.2",
     "mypy>=2.4.0",
     "bandit>=1.9.4",
     "pip-audit>=2.10.1",
