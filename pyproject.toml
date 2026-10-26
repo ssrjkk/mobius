@@ -32,7 +32,7 @@ dependencies = [
     # заставило бы команды на unittest/Robot Framework тащить чужой test
     # runner только ради screenshot attach. Сам pytest-плагин — в [test] extras.
     "allure-python-commons>=2.16.2",
-    "Pillow>=12.3.0",          # visual_regression.py
+    "Pillow>=13.0.0",          # visual_regression.py
     "pyyaml>=6.0.3",           # app_config.py — YAML конфиги приложений
     "requests>=2.34.2",        # appium_driver.py — is_appium_available()
 ]
