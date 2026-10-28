@@ -5,9 +5,6 @@
   <a href="https://github.com/ssrjkk/mobius/actions/workflows/ci.yml">
     <img src="https://github.com/ssrjkk/mobius/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
   </a>
-  <a href="https://ssrjkk.github.io/mobius/allure">
-    <img src="https://img.shields.io/badge/Allure-Report-orange" alt="Allure Report" />
-  </a>
   <a href="https://www.python.org/downloads/">
     <img src="https://img.shields.io/badge/python-3.12-blue.svg" alt="Python 3.12" />
   </a>
