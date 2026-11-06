@@ -58,7 +58,7 @@ test = [
     "factory-boy>=3.3.3",
     "httpx>=0.28.1",
     "respx>=0.23.1",
-    "pact-python>=3.4.1",
+    "pact-python>=4.2.0",
 ]
 lint = [
     "ruff>=0.17.2",
