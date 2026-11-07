@@ -11,9 +11,6 @@
   <a href="https://appium.io/">
     <img src="https://img.shields.io/badge/Appium-2.x-green.svg" alt="Appium 2.x" />
   </a>
-  <a href="https://codecov.io/gh/ssrjkk/mobius">
-    <img src="https://codecov.io/gh/ssrjkk/mobius/branch/main/graph/badge.svg" alt="Codecov" />
-  </a>
   <a href="README.ru.md">
     <img src="https://img.shields.io/badge/lang-ru-red.svg" alt="Русская версия" />
   </a>
