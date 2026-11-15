@@ -1,576 +1,747 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mobius — 947 тестов. Две платформы. Один пайплайн.</title>
-<meta name="description" content="Mobius — мобильная автоматизация Android/iOS: 947 тестов, 99% покрытия, экранные объекты, пул устройств, параллельные запуски. Python · Appium 2.x · pytest.">
+<meta name="description" content="Mobius — мобильная автоматизация Android и iOS на Python, Appium 2.x и pytest: 947 тестов, 99% покрытия, экранные объекты, пул устройств, жесты и параллельные запуски.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230A0F1E'/%3E%3Crect x='7' y='9' width='8' height='14' rx='2.5' fill='%232DD4BF'/%3E%3Crect x='17' y='9' width='8' height='14' rx='2.5' fill='%237DD3FC'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>document.documentElement.classList.add('anim');</script>
 <style>
-/* ============================================================
-   MOBIUS / HUD — приборная консоль мобильной автоматизации
-   Стиль: HUD / Sci-Fi FUI · тёмный технический холст,
-   неон-cyan только на рамках/цифрах/маркерах, текст — светлый.
-   ============================================================ */
-:root{
-  --void:#05090F;
-  --panel:rgba(10,20,32,.62);
-  --panel-solid:#0A1420;
-  --screen:#060D16;
-  --line:rgba(126,220,255,.14);
-  --line-strong:rgba(126,220,255,.30);
-  --tick:rgba(63,231,255,.55);
-  --hud:#3FE7FF;
-  --ink:#D9E6EF;
-  --ink-dim:#8CA3B4;
-  --ink-faint:#5C7386;
-  --warn:#FFB454;
-  --f-display:'Unbounded','Arial',sans-serif;
-  --f-mono:'JetBrains Mono','Consolas',ui-monospace,monospace;
-  --glow:0 0 16px rgba(63,231,255,.35);
-}
-*{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{
-  background:var(--void);
-  color:var(--ink);
-  font-family:var(--f-mono);
-  font-size:15px;
-  line-height:1.65;
-  overflow-x:clip;
-  -webkit-font-smoothing:antialiased;
-}
-/* технический фон: едва заметная сетка + холодный отсвет */
-body::before{
-  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
-  background:
-    radial-gradient(1100px 620px at 72% -12%, rgba(63,231,255,.05), transparent 62%),
-    linear-gradient(rgba(126,220,255,.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(126,220,255,.045) 1px, transparent 1px);
-  background-size:auto,44px 44px,44px 44px;
-}
-::selection{background:rgba(63,231,255,.28);color:var(--ink)}
-a{color:var(--ink);text-decoration:none;border-bottom:1px solid rgba(63,231,255,.45);transition:color .18s,border-color .18s}
-a:hover{color:var(--hud);border-color:var(--hud)}
-a:focus-visible,button:focus-visible{outline:2px solid var(--hud);outline-offset:3px}
-img{max-width:100%}
-.wrap{max-width:1240px;margin:0 auto;padding:0 clamp(16px,4vw,40px)}
+  :root{
+    --bg:#0A0F1E;
+    --bg2:#0D1526;
+    --glass:rgba(30,41,59,.5);
+    --glass-deep:rgba(23,32,50,.72);
+    --line-glass:rgba(255,255,255,.14);
+    --line-soft:rgba(255,255,255,.08);
+    --fg:#F8FAFC;
+    --muted:#94A3B8;
+    --faint:#64748B;
+    --teal:#2DD4BF;
+    --teal-bright:#5EEAD4;
+    --ice:#7DD3FC;
+    --ok:#22C55E;
+    --warn:#FBBF24;
+    --sans:'Manrope',-apple-system,'Segoe UI',sans-serif;
+    --mono:'JetBrains Mono','SFMono-Regular',Consolas,monospace;
+    --wrap:1180px;
+    --pad:clamp(18px,4vw,40px);
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth;overflow-x:clip}
+  body{
+    font-family:var(--sans);
+    background:var(--bg);
+    color:var(--fg);
+    line-height:1.6;
+    font-size:16px;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:clip;
+  }
+  ::selection{background:#134E4A;color:var(--fg)}
+  a{color:inherit;text-decoration:none}
+  img,svg{display:block}
+  .wrap{max-width:var(--wrap);margin-inline:auto;padding-inline:var(--pad)}
 
-/* — рамка с приборными засечками по углам — */
-.tickframe{
-  position:relative;border:1px solid var(--line);
-  background-image:
-    linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick)),
-    linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick)),
-    linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick)),
-    linear-gradient(var(--tick),var(--tick)),linear-gradient(var(--tick),var(--tick));
-  background-position:top left,top left,top right,top right,bottom left,bottom left,bottom right,bottom right;
-  background-size:14px 1px,1px 14px,14px 1px,1px 14px,14px 1px,1px 14px,14px 1px,1px 14px;
-  background-repeat:no-repeat;
-}
+  /* ---------- доступность ---------- */
+  .skip{
+    position:absolute;left:16px;top:-48px;z-index:100;
+    background:var(--teal);color:#06251F;
+    padding:10px 16px;border-radius:10px;font-size:.9rem;font-weight:700;
+    transition:top .2s ease;
+  }
+  .skip:focus{top:12px}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--teal);outline-offset:2px;border-radius:10px}
 
-/* — моно-подпись (информационная, мелкая, разряженная) — */
-.kicker{
-  font-size:11px;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--ink-faint);font-weight:500;
-}
-.kicker b{color:var(--hud);font-weight:500}
+  /* ---------- пред-анимационные состояния ---------- */
+  .anim [data-hero]{opacity:0;transform:translateY(26px)}
+  .anim .phone{opacity:0;transform:translateY(36px)}
+  .anim .tele-row{opacity:0;transform:translateX(14px)}
+  .anim .lane-fill{transform:scaleX(0)}
+  .anim .reveal{opacity:0;transform:translateY(28px)}
+  .anim .fcard{opacity:0;transform:translateY(22px)}
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .anim [data-hero],.anim .phone,.anim .tele-row,.anim .lane-fill,.anim .reveal,.anim .fcard{opacity:1 !important;transform:none !important}
+    *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+  }
 
-/* ================= ТОПБАР / 00 СТАТУС ================= */
-.topbar{border-bottom:1px solid var(--line)}
-.topbar .wrap{
-  display:flex;align-items:center;gap:18px;flex-wrap:wrap;
-  padding-top:14px;padding-bottom:14px;
-}
-.brand{display:flex;align-items:center;gap:12px;border-bottom:none}
-.brand-mark{
-  width:26px;height:26px;border:1px solid var(--hud);position:relative;flex:none;
-  display:grid;place-items:center;
-  font:700 12px/1 var(--f-display);color:var(--hud);text-shadow:var(--glow);
-}
-.brand-mark::after{content:"";position:absolute;inset:3px;border:1px solid var(--line-strong)}
-.brand-name{font:700 14px/1.2 var(--f-display);letter-spacing:.06em;color:var(--ink)}
-.brand-sub{font-size:10.5px;letter-spacing:.12em;color:var(--ink-faint);text-transform:uppercase}
-.topbar-status{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.12em;color:var(--ink-dim);text-transform:uppercase;margin-left:auto}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--hud);box-shadow:0 0 8px rgba(63,231,255,.8);animation:pulse 2.6s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-.topbar-link{font-size:12.5px;letter-spacing:.06em;border-bottom:none;color:var(--ink-dim)}
-.topbar-link:hover{color:var(--hud)}
+  /* ---------- стеклянная поверхность ---------- */
+  .glass{
+    background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.015)),rgba(30,41,59,.5);
+    border:1px solid var(--line-glass);
+    border-radius:16px;
+    backdrop-filter:blur(14px) saturate(140%);
+    -webkit-backdrop-filter:blur(14px) saturate(140%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 24px 60px -32px rgba(2,6,17,.8);
+  }
 
-/* ================= ШАПКИ СЕКЦИЙ (карта консоли) ================= */
-.sec{border-top:1px solid var(--line);padding:clamp(56px,8vw,92px) 0}
-.sec-head{
-  display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:clamp(28px,4vw,44px);
-}
-.sec-head h2{
-  font:500 clamp(1.3rem,1rem + 1.4vw,1.85rem)/1.2 var(--f-display);
-  letter-spacing:.01em;color:var(--ink);
-}
-.sec-head .rule{flex:1;height:1px;background:var(--line);align-self:center;min-width:40px}
-.sec-head .idx{font-size:11.5px;letter-spacing:.14em;color:var(--ink-faint)}
+  /* ---------- топбар ---------- */
+  .topbar{
+    position:sticky;top:0;z-index:60;
+    background:rgba(10,15,30,.82);
+    backdrop-filter:blur(16px) saturate(140%);
+    -webkit-backdrop-filter:blur(16px) saturate(140%);
+    border-bottom:1px solid var(--line-soft);
+  }
+  .topbar-in{display:flex;align-items:center;gap:26px;height:66px}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:800;font-size:1.06rem;letter-spacing:-.01em;cursor:pointer}
+  .brand-mark{width:18px;height:18px;border-radius:6px;position:relative;background:linear-gradient(135deg,var(--teal),var(--ice));flex:none}
+  .brand-mark::after{content:'';position:absolute;inset:5px;border-radius:3px;background:var(--bg)}
+  .topnav{display:flex;gap:24px;margin-left:auto}
+  .topnav a{font-size:.9rem;font-weight:600;color:var(--muted);transition:color .18s ease}
+  .topnav a:hover{color:var(--teal-bright)}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:10px;
+    height:48px;padding:0 24px;border-radius:12px;border:1px solid transparent;
+    font:700 .93rem/1 var(--sans);cursor:pointer;
+    transition:background .2s ease,border-color .2s ease,color .2s ease,transform .2s ease;
+  }
+  .btn-primary{background:var(--teal);color:#06251F}
+  .btn-primary:hover{background:var(--teal-bright);transform:translateY(-1px)}
+  .btn-glass{border-color:rgba(255,255,255,.22);color:var(--fg);background:rgba(255,255,255,.03)}
+  .btn-glass:hover{border-color:rgba(255,255,255,.44)}
+  .btn-sm{height:38px;padding:0 16px;font-size:.85rem;border-radius:10px}
+  .btn-row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
 
-/* ================= ХИРО / 01 ГЛАВНЫЙ ЭКРАН ================= */
-.hero{padding:clamp(48px,7vw,88px) 0}
-.hero-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,.95fr);gap:clamp(20px,3vw,32px);align-items:stretch}
-.hero-frame{
-  padding:clamp(24px,3.4vw,44px);
-  display:flex;flex-direction:column;justify-content:center;gap:20px;overflow:hidden;
-}
-/* единственный «кинематографический» момент: сканирующая линия по главному экрану */
-.hero-frame::after{
-  content:"";position:absolute;left:0;right:0;top:0;height:56px;pointer-events:none;
-  background:linear-gradient(180deg,transparent,rgba(63,231,255,.07) 78%,rgba(63,231,255,.22) 98%,transparent);
-  animation:scan 8s linear infinite;
-}
-@keyframes scan{from{transform:translateY(-60px)}to{transform:translateY(calc(100% + 560px))}}
-.hero h1{
-  font:700 clamp(1.55rem,1rem + 2.6vw,3rem)/1.16 var(--f-display);
-  letter-spacing:.005em;color:var(--ink);
-}
-.hero h1 b{color:var(--hud);font-weight:700;text-shadow:var(--glow)}
-.hero-intro{max-width:58ch;color:var(--ink-dim)}
-.hero-intro strong{color:var(--ink);font-weight:500}
-.stack-line{font-size:12.5px;letter-spacing:.1em;color:var(--ink-faint);text-transform:uppercase}
-.stack-line b{color:var(--ink);font-weight:500}
-/* подъём элементов при загрузке — один раз */
-.rise{animation:rise .7s cubic-bezier(.2,.7,.2,1) both}
-.rise:nth-child(2){animation-delay:.08s}
-.rise:nth-child(3){animation-delay:.16s}
-.rise:nth-child(4){animation-delay:.24s}
-@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  /* ---------- хиро ---------- */
+  .hero{position:relative;padding-block:clamp(56px,8vw,104px) clamp(48px,6vw,80px)}
+  .hero::before{
+    content:'';position:absolute;inset:0;pointer-events:none;
+    background-image:
+      linear-gradient(rgba(255,255,255,.032) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,.032) 1px,transparent 1px);
+    background-size:44px 44px;
+    -webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.9),rgba(0,0,0,.25) 70%,transparent);
+    mask-image:linear-gradient(180deg,rgba(0,0,0,.9),rgba(0,0,0,.25) 70%,transparent);
+  }
+  /* плоские тональные поля — источник «света» для стекла, без glow */
+  .hero::after{
+    content:'';position:absolute;pointer-events:none;
+    left:50%;top:34%;width:min(880px,92vw);height:420px;
+    transform:translateX(-50%);
+    background:
+      radial-gradient(closest-side at 30% 50%,rgba(19,78,74,.38),transparent 72%),
+      radial-gradient(closest-side at 74% 46%,rgba(30,58,95,.42),transparent 72%);
+    filter:blur(6px);
+  }
+  .hero-in{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;text-align:center}
+  .status-chips{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:30px}
+  .chip{
+    display:inline-flex;align-items:center;gap:8px;
+    font:500 .76rem/1 var(--mono);color:var(--muted);
+    border:1px solid var(--line-soft);background:rgba(255,255,255,.03);
+    padding:8px 12px;border-radius:999px;
+  }
+  .chip i{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:pulse 2.4s ease-in-out infinite}
+  .chip b{color:var(--teal-bright);font-weight:600}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  h1{
+    font-size:clamp(2.1rem,5.4vw,4.3rem);
+    line-height:1.07;letter-spacing:-.03em;font-weight:800;
+    text-wrap:balance;
+  }
+  h1 .h1-line{display:block}
+  .hero-lead{margin-top:24px;font-size:clamp(1rem,1.4vw,1.14rem);color:var(--muted);max-width:38em;line-height:1.68}
+  .hero-cta{margin-top:34px;justify-content:center}
+  .hero-cta .btn{min-width:200px}
 
-/* телеметрия */
-.telemetry{padding:clamp(18px,2.4vw,26px);display:flex;flex-direction:column;gap:16px}
-.tele-rows{display:flex;flex-direction:column}
-.tele-row{
-  display:grid;grid-template-columns:minmax(96px,auto) 1fr;align-items:baseline;gap:14px;
-  padding:10px 0;border-bottom:1px solid var(--line);
-}
-.tele-row:first-child{border-top:1px solid var(--line)}
-.tele-num{font:700 clamp(1.5rem,1.1rem + 1.2vw,2.1rem)/1 var(--f-display);color:var(--hud);text-shadow:var(--glow)}
-.tele-label{font-size:11px;letter-spacing:.14em;color:var(--ink-dim);text-transform:uppercase}
-.pool{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
-.pool-cell{
-  border:1px solid var(--line);padding:8px 0 6px;text-align:center;
-  font-size:10px;letter-spacing:.08em;color:var(--ink-faint);
-}
-.pool-cell i{display:block;width:5px;height:5px;margin:0 auto 5px;border-radius:50%;background:var(--ink-faint);font-style:normal}
-.pool-cell.on{border-color:var(--line-strong);color:var(--ink-dim)}
-.pool-cell.on i{background:var(--hud);box-shadow:0 0 6px rgba(63,231,255,.8)}
-.tele-note{font-size:11px;color:var(--ink-faint);line-height:1.55}
+  /* ---------- консоль: пул устройств + телеметрия ---------- */
+  .console{position:relative;z-index:1;margin-top:clamp(44px,6vw,64px);max-width:980px;width:100%;margin-inline:auto;text-align:left}
+  .console-grid{display:grid;grid-template-columns:minmax(0,1fr) 292px}
+  .devices{
+    padding:clamp(22px,3vw,34px);
+    display:flex;align-items:center;justify-content:center;gap:clamp(14px,2.4vw,26px);
+    position:relative;
+  }
+  .phones{display:flex;align-items:flex-end;gap:clamp(14px,2.4vw,26px)}
+  .phone{
+    width:clamp(148px,17vw,196px);
+    border-radius:22px;
+    border:1px solid rgba(255,255,255,.18);
+    background:rgba(10,16,32,.66);
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 22px 44px -22px rgba(2,6,17,.9);
+    padding:9px;
+    flex:none;
+  }
+  .phone.android{transform:rotate(-2.4deg)}
+  .phone.ios{transform:rotate(2deg) translateY(14px)}
+  .phone-top{display:flex;justify-content:center;padding:5px 0 7px}
+  .cam{width:7px;height:7px;border-radius:50%;background:#243149}
+  .island{width:34px;height:9px;border-radius:999px;background:#243149}
+  .phone-screen{border-radius:14px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);padding:10px 10px 12px}
+  .ps-head{display:flex;justify-content:space-between;align-items:center;font:500 .58rem/1 var(--mono);color:var(--faint);padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.07);margin-bottom:8px}
+  .ps-head b{color:var(--muted);font-weight:600;letter-spacing:.02em}
+  .ps-live{display:inline-flex;align-items:center;gap:5px}
+  .ps-live::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ok)}
+  .ps-row{display:flex;align-items:center;gap:7px;font:400 .6rem/1 var(--mono);color:#CBD5E1;padding:5.5px 0;white-space:nowrap;overflow:hidden}
+  .ps-row i{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:none}
+  .phone.android .ps-row.live i{background:var(--teal)}
+  .phone.ios .ps-row.live i{background:var(--ice)}
+  .ps-gesture{
+    margin-top:9px;border:1px solid rgba(255,255,255,.12);border-radius:8px;
+    font:400 .56rem/1 var(--mono);color:var(--muted);
+    padding:6px 8px;text-align:center;white-space:nowrap;overflow:hidden;
+  }
+  .tele{border-left:1px solid var(--line-soft);padding:clamp(18px,2.4vw,26px)}
+  .tele-head{display:flex;justify-content:space-between;align-items:center;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.07)}
+  .tele-title{font:600 .68rem/1 var(--mono);letter-spacing:.14em;color:var(--faint)}
+  .tele-state{display:inline-flex;align-items:center;gap:6px;font:500 .68rem/1 var(--mono);color:var(--ok)}
+  .tele-state i{width:6px;height:6px;border-radius:50%;background:var(--ok);animation:pulse 2.4s ease-in-out infinite}
+  .tele-row{padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+  .tele-k{font:400 .68rem/1.3 var(--mono);color:var(--muted)}
+  .tele-v{font:700 1.02rem/1.2 var(--sans);letter-spacing:-.01em;margin-top:3px}
+  .tele-v em{font-style:normal;color:var(--teal-bright)}
+  .dev-q{display:flex;justify-content:space-between;align-items:center;font:400 .7rem/1 var(--mono);color:#CBD5E1;padding:4px 0}
+  .dev-q span{color:var(--faint)}
+  .dev-q i{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:1px}
+  .i-busy{background:var(--warn)} .i-free{background:var(--ok)}
+  .lane{margin-top:12px}
+  .lane-l{display:flex;justify-content:space-between;font:400 .66rem/1 var(--mono);color:var(--faint);margin-bottom:6px}
+  .lane-bar{height:6px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+  .lane-fill{height:100%;border-radius:999px;background:var(--teal);transform-origin:left;transform:scaleX(1)}
+  .lane.ice .lane-fill{background:var(--ice)}
+  .console-cap{margin-top:14px;font:400 .74rem/1.5 var(--mono);color:var(--faint);text-align:center}
 
-/* ================= МОДУЛИ / 02 ВОЗМОЖНОСТИ ================= */
-.mods{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-.mod{background:var(--panel);padding:20px 20px 18px;display:flex;flex-direction:column;gap:10px;transition:border-color .2s,background-image .2s}
-.mod:hover{border-color:var(--line-strong)}
-.mod-code{font-size:10.5px;letter-spacing:.16em;color:var(--hud)}
-.mod h3{font:500 15.5px/1.3 var(--f-display);color:var(--ink)}
-.mod p{font-size:13px;line-height:1.6;color:var(--ink-dim)}
+  /* ---------- метрики ---------- */
+  .metrics{border-block:1px solid var(--line-soft);background:rgba(255,255,255,.015)}
+  .metrics-grid{display:grid;grid-template-columns:repeat(4,1fr)}
+  .mcell{padding:clamp(28px,4vw,44px) clamp(18px,3vw,36px);border-left:1px solid var(--line-soft)}
+  .mcell:first-child{border-left:0}
+  .mnum{font:700 clamp(1.9rem,3.2vw,2.85rem)/1 var(--mono);letter-spacing:-.05em;color:var(--teal-bright)}
+  .mnum.ice{color:var(--ice)}
+  .mlabel{margin-top:10px;font-size:.88rem;color:var(--muted)}
 
-/* ================= ЦЕПОЧКА / 03 ПРОЦЕСС ================= */
-.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0 22px}
-.step{display:flex;flex-direction:column;gap:12px}
-.step-top{display:flex;align-items:center;gap:12px}
-.step-top::after{content:"";flex:1;height:1px;background:var(--line-strong)}
-.step:last-child .step-top::after{background:linear-gradient(90deg,var(--line-strong),transparent)}
-.step-num{
-  width:36px;height:36px;flex:none;border:1px solid var(--hud);
-  display:grid;place-items:center;font:700 13px/1 var(--f-mono);color:var(--hud);
-  text-shadow:var(--glow);
-}
-.step h3{font:500 15px/1.3 var(--f-display);color:var(--ink)}
-.step p{font-size:12.5px;line-height:1.6;color:var(--ink-dim)}
+  /* ---------- секции ---------- */
+  section{scroll-margin-top:88px}
+  .sec{padding-block:clamp(68px,9vw,118px);position:relative}
+  .sec-head{max-width:660px;margin-bottom:clamp(36px,5vw,60px)}
+  .sec-label{
+    display:flex;align-items:center;gap:12px;
+    font:600 .76rem/1 var(--mono);letter-spacing:.12em;color:var(--teal);margin-bottom:18px;
+  }
+  .sec-label::before{content:'';width:24px;height:2px;background:currentColor}
+  h2{font-size:clamp(1.65rem,3.3vw,2.55rem);line-height:1.14;letter-spacing:-.02em;font-weight:800;text-wrap:balance}
+  .sec-sub{margin-top:16px;color:var(--muted);font-size:1.02rem;max-width:38em}
 
-/* ================= КОНСОЛЬ / 04 ДЕМО ================= */
-.demo-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:clamp(18px,2.6vw,28px);align-items:start}
-.demo-stage{padding:clamp(18px,2.6vw,26px);display:flex;flex-direction:column;gap:18px}
-.demo-toggle{display:flex;gap:10px}
-.demo-toggle button{
-  font:500 12.5px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;
-  color:var(--ink-dim);background:transparent;border:1px solid var(--line-strong);
-  padding:11px 20px;cursor:pointer;transition:color .18s,border-color .18s,background-color .18s;
-}
-.demo-toggle button:hover{color:var(--ink)}
-.demo-toggle button[aria-pressed="true"]{
-  color:var(--hud);border-color:var(--hud);background:rgba(63,231,255,.09);
-  box-shadow:inset 0 0 12px rgba(63,231,255,.08);
-}
-/* макет устройства */
-.device{border:1px solid var(--line-strong);background:var(--screen);max-width:340px;width:100%;margin:0 auto;display:flex;flex-direction:column}
-.device-top{
-  display:flex;justify-content:space-between;align-items:center;gap:10px;
-  padding:9px 12px;border-bottom:1px solid var(--line);
-  font-size:10px;letter-spacing:.14em;color:var(--ink-faint);text-transform:uppercase;
-}
-.device-top b{color:var(--hud);font-weight:500}
-.obj-tree{list-style:none;padding:6px 0}
-.obj-tree li{
-  display:flex;justify-content:space-between;align-items:center;gap:12px;
-  padding:7px 12px;font-size:11.5px;color:var(--ink-dim);
-}
-.obj-tree li + li{border-top:1px dashed rgba(126,220,255,.10)}
-.obj-tree .obj-status{
-  font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;flex:none;
-  color:var(--hud);border:1px solid rgba(63,231,255,.35);padding:2px 7px;
-}
-.device-log{border-top:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:4px}
-.device-log span{display:flex;gap:10px;font-size:11px;line-height:1.5}
-.device-log .t{color:var(--ink-faint);flex:none}
-.device-log .m{color:var(--ink-dim)}
-.device-log span:last-child .m{color:var(--hud)}
-/* приборные данные */
-.demo-data{display:flex;flex-direction:column;gap:0;background:var(--panel);border:1px solid var(--line);padding:clamp(16px,2.2vw,22px)}
-.data-row{display:grid;grid-template-columns:minmax(110px,132px) 1fr;gap:12px;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--line)}
-.data-row dt{font-size:10.5px;letter-spacing:.14em;color:var(--ink-faint);text-transform:uppercase}
-.data-row dd{font-size:13px;color:var(--ink);word-break:break-word}
-.data-row dd code{font-size:12px;color:var(--hud)}
-.caution{
-  margin-top:16px;border:1px solid rgba(255,180,84,.4);background:rgba(255,180,84,.06);
-  padding:12px 14px;display:flex;gap:12px;align-items:flex-start;
-  font-size:12px;line-height:1.55;color:var(--warn);
-}
-.caution-mark{
-  flex:none;width:20px;height:20px;border:1px solid var(--warn);
-  display:grid;place-items:center;font:700 11px/1 var(--f-mono);
-}
+  /* ---------- возможности ---------- */
+  .fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .fcard{padding:clamp(22px,2.6vw,30px);transition:transform .2s ease,border-color .2s ease}
+  .fcard:hover{transform:translateY(-3px);border-color:rgba(255,255,255,.3)}
+  .fcard svg{width:26px;height:26px;color:var(--teal);margin-bottom:18px}
+  .fcard h3{font-size:1.05rem;font-weight:700;letter-spacing:-.01em;margin-bottom:9px}
+  .fcard p{font-size:.93rem;color:var(--muted);line-height:1.62}
 
-/* ================= ЗАПУСК / 05 ТЕРМИНАЛ ================= */
-.term{border:1px solid var(--line-strong);background:var(--screen);max-width:820px}
-.term-head{
-  display:flex;justify-content:space-between;align-items:center;gap:12px;
-  padding:10px 16px;border-bottom:1px solid var(--line);
-  font-size:10.5px;letter-spacing:.14em;color:var(--ink-faint);text-transform:uppercase;
-}
-.term-head b{color:var(--hud);font-weight:500}
-.term pre{
-  padding:18px 16px 20px;font:400 13px/1.9 var(--f-mono);color:var(--ink);
-  white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;
-}
-.term .p{color:var(--hud);user-select:none}
-.term .c{color:var(--ink-faint);font-style:italic}
-.run-note{margin-top:14px;font-size:12px;color:var(--ink-dim);max-width:64ch}
-.run-note a{border-bottom-color:rgba(63,231,255,.45)}
+  /* ---------- процесс ---------- */
+  .proc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(24px,3vw,40px);position:relative}
+  .proc-track{position:absolute;top:17px;left:0;right:0;height:2px;background:rgba(255,255,255,.1)}
+  .proc-fill{position:absolute;inset:0;background:var(--teal);transform-origin:left;transform:scaleX(1)}
+  .step{position:relative}
+  .step .num{
+    position:relative;display:inline-block;
+    font:600 .78rem/1 var(--mono);color:var(--teal-bright);
+    background:rgba(13,21,38,.9);border:1px solid var(--line-glass);
+    padding:9px 10px;border-radius:10px;margin-bottom:20px;
+    box-shadow:0 8px 20px -12px rgba(2,6,17,.9);
+  }
+  .step h3{font-size:1.05rem;font-weight:700;letter-spacing:-.01em;margin-bottom:8px}
+  .step p{font-size:.92rem;color:var(--muted);line-height:1.6}
 
-/* ================= БАЗА / ФУТЕР ================= */
-.footer{border-top:1px solid var(--line);padding:30px 0 34px}
-.footer .wrap{display:flex;align-items:center;gap:14px 26px;flex-wrap:wrap}
-.footer-brand{font:700 14px/1.3 var(--f-display);letter-spacing:.04em}
-.footer-note{font-size:11.5px;color:var(--ink-faint);flex:1;min-width:200px}
-.footer-link{font-size:12.5px;letter-spacing:.04em;white-space:nowrap}
+  /* ---------- демо ---------- */
+  .demo-panel{padding:clamp(20px,3vw,32px)}
+  .demo-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+  .tabs{display:inline-flex;gap:6px;padding:5px;border-radius:12px;border:1px solid var(--line-soft);background:rgba(2,6,17,.45)}
+  .tab{
+    font:700 .86rem/1 var(--sans);color:var(--muted);
+    padding:10px 18px;border-radius:9px;border:1px solid transparent;
+    background:transparent;cursor:pointer;
+    transition:background .2s ease,color .2s ease,border-color .2s ease;
+  }
+  .tab:hover{color:var(--fg)}
+  .tab[aria-selected="true"]{background:rgba(45,212,191,.14);border-color:rgba(45,212,191,.4);color:var(--teal-bright)}
+  .demo-flag{font:500 .72rem/1 var(--mono);color:var(--faint)}
+  .demo-pane{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:clamp(20px,3vw,30px);align-items:stretch}
+  .demo-pane[hidden]{display:none}
+  .cap-block{
+    background:rgba(2,6,17,.72);border:1px solid var(--line-soft);border-radius:12px;
+    padding:18px 20px;font:400 .78rem/2 var(--mono);color:#94A3B8;overflow-x:auto;
+  }
+  .cap-block .k{color:var(--teal-bright)}
+  .cap-block .s{color:var(--ice)}
+  .cap-block .c{color:#55627A}
+  .cap-title{font:600 .68rem/1 var(--mono);letter-spacing:.12em;color:var(--faint);margin-bottom:12px}
+  .mini-phone{
+    display:flex;flex-direction:column;
+    border:1px solid rgba(255,255,255,.14);border-radius:18px;
+    background:rgba(10,16,32,.6);padding:14px;
+  }
+  .mp-head{display:flex;justify-content:space-between;align-items:center;font:500 .64rem/1 var(--mono);color:var(--faint);padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:10px}
+  .mp-head b{color:var(--muted)}
+  .gstep{
+    display:flex;align-items:center;gap:10px;
+    font:400 .74rem/1.4 var(--mono);color:var(--muted);
+    border:1px solid rgba(255,255,255,.08);border-radius:10px;
+    padding:10px 12px;margin-bottom:8px;
+    transition:border-color .25s ease,color .25s ease,background .25s ease;
+  }
+  .gstep i{
+    width:8px;height:8px;border-radius:50%;flex:none;
+    border:1.5px solid rgba(255,255,255,.25);
+    transition:background .25s ease,border-color .25s ease;
+  }
+  .gstep.lit{border-color:rgba(45,212,191,.4);background:rgba(45,212,191,.07);color:#E2F7F3}
+  .gstep.lit i{background:var(--teal);border-color:var(--teal)}
+  .mp-foot{margin-top:auto;padding-top:10px;font:400 .64rem/1.4 var(--mono);color:var(--faint)}
+  .demo-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:22px}
+  .demo-cap{font:400 .76rem/1.6 var(--mono);color:var(--faint);max-width:44em}
 
-/* ================= АДАПТИВ ================= */
-@media (max-width:1080px){
-  .hero-grid{grid-template-columns:1fr}
-  .mods{grid-template-columns:repeat(2,1fr)}
-  .steps{grid-template-columns:repeat(2,1fr);gap:26px 22px}
-}
-@media (max-width:900px){
-  .demo-grid{grid-template-columns:1fr}
-  .demo-data{width:100%}
-}
-@media (max-width:760px){
-  .mods{grid-template-columns:1fr}
-  .steps{grid-template-columns:1fr;gap:22px}
-  .step-top::after{max-width:120px}
-  .topbar-status{display:none}
-  .pool{grid-template-columns:repeat(6,1fr)}
-  .data-row{grid-template-columns:1fr;gap:2px;padding:9px 0}
-}
-@media (max-width:480px){
-  body{font-size:14px}
-  .demo-toggle button{flex:1;padding:11px 10px}
-  .obj-tree li{flex-wrap:wrap;gap:4px 10px}
-}
-/* ================= ДОСТУПНОСТЬ ================= */
-@media (prefers-reduced-motion:reduce){
-  html{scroll-behavior:auto}
-  *,*::before,*::after{animation:none!important;transition:none!important}
-  .hero-frame::after{content:none}
-}
+  /* ---------- CTA-финал ---------- */
+  .cta-wrap{padding-bottom:clamp(72px,9vw,116px)}
+  .cta-panel{
+    text-align:center;padding:clamp(44px,7vw,84px) clamp(22px,5vw,72px);
+    position:relative;overflow:hidden;
+  }
+  .cta-panel::before{
+    content:'';position:absolute;inset:0;pointer-events:none;
+    background:
+      radial-gradient(closest-side at 22% 30%,rgba(19,78,74,.42),transparent 70%),
+      radial-gradient(closest-side at 82% 70%,rgba(30,58,95,.45),transparent 70%);
+  }
+  .cta-panel>*{position:relative}
+  .cta-panel h2{max-width:17em;margin-inline:auto}
+  .cta-panel p{margin-top:18px;color:var(--muted);font-size:1.05rem;max-width:32em;margin-inline:auto}
+  .cta-panel .btn-row{margin-top:36px;justify-content:center}
+
+  /* ---------- футер ---------- */
+  footer{border-top:1px solid var(--line-soft)}
+  .foot-in{
+    display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;
+    padding-block:26px;font-size:.9rem;
+  }
+  .foot-brand{font-weight:700;letter-spacing:-.01em}
+  .foot-links{display:flex;gap:26px;flex-wrap:wrap}
+  .foot-links a{color:var(--muted);transition:color .18s ease}
+  .foot-links a:hover{color:var(--teal-bright)}
+
+  /* ---------- адаптив ---------- */
+  @media (max-width:1020px){
+    .console-grid{grid-template-columns:1fr}
+    .tele{border-left:0;border-top:1px solid var(--line-soft)}
+  }
+  @media (max-width:960px){
+    .fgrid{grid-template-columns:repeat(2,1fr)}
+    .proc-grid{grid-template-columns:1fr;gap:0}
+    .proc-track{display:none}
+    .step{padding-block:22px;border-top:1px solid var(--line-soft)}
+    .step:first-child{border-top:0;padding-top:0}
+    .step .num{margin-bottom:12px}
+    .demo-pane{grid-template-columns:1fr}
+  }
+  @media (max-width:760px){
+    .topnav{display:none}
+    .topbar .btn{margin-left:auto}
+    .metrics-grid{grid-template-columns:repeat(2,1fr)}
+    .mcell:nth-child(odd){border-left:0}
+    .mcell:nth-child(n+3){border-top:1px solid var(--line-soft)}
+    .phone.ios{transform:rotate(2deg)}
+  }
+  @media (max-width:640px){
+    .fgrid{grid-template-columns:1fr}
+    .btn{width:100%}
+    .btn-sm{width:auto}
+    .hero-cta{width:100%}
+    .phones{gap:10px}
+    .phone{width:min(46vw,180px);padding:6px}
+    .phone.ios{transform:translateY(10px)}
+    .ps-row{font-size:.55rem}
+    .ps-gesture{font-size:.5rem}
+    .demo-top{align-items:flex-start}
+    .tab{padding:10px 14px}
+  }
 </style>
 </head>
 <body>
+<a class="skip" href="#main">К содержанию</a>
 
-<!-- 00 · СТАТУС -->
 <header class="topbar">
-  <div class="wrap">
-    <a class="brand" href="#hero">
-      <span class="brand-mark" aria-hidden="true">M</span>
-      <span>
-        <span class="brand-name">MOBIUS</span><br>
-        <span class="brand-sub">мобильная автоматизация</span>
-      </span>
+  <div class="wrap topbar-in">
+    <a class="brand" href="#main" aria-label="Mobius — к началу">
+      <span class="brand-mark" aria-hidden="true"></span>
+      Mobius
     </a>
-    <p class="topbar-status"><span class="dot" aria-hidden="true"></span>система в норме</p>
-    <a class="topbar-link" href="https://github.com/ssrjkk/mobius" target="_blank" rel="noopener">GitHub ↗</a>
+    <nav class="topnav" aria-label="Разделы">
+      <a href="#features">Возможности</a>
+      <a href="#how">Как работает</a>
+      <a href="#demo">Демо</a>
+    </nav>
+    <a class="btn btn-primary btn-sm" href="https://github.com/ssrjkk/mobius" target="_blank" rel="noopener">Репозиторий</a>
   </div>
 </header>
 
-<main>
-  <!-- 01 · ГЛАВНЫЙ ЭКРАН -->
-  <section class="hero" id="hero" aria-labelledby="hero-title">
-    <div class="wrap hero-grid">
-      <div class="hero-frame tickframe">
-        <p class="kicker rise"><b>M-01</b> · главный экран · Android/iOS</p>
-        <h1 id="hero-title" class="rise"><b>947</b> тестов.<br>Две платформы.<br>Один пайплайн.</h1>
-        <p class="hero-intro rise">Экранные объекты, пул устройств и жесты в общей инженерной системе на <strong>Appium 2.x</strong> и <strong>pytest</strong>.</p>
-        <p class="stack-line rise">стек: <b>Python</b> · <b>Appium 2.x</b> · <b>pytest</b></p>
+<main id="main">
+
+  <!-- ===== ХИРО ===== -->
+  <section class="hero">
+    <div class="wrap hero-in">
+      <div class="status-chips" data-hero aria-label="Статус проекта">
+        <span class="chip"><i aria-hidden="true"></i>пул готов</span>
+        <span class="chip"><b>947</b>&nbsp;тестов</span>
+        <span class="chip"><b>99%</b>&nbsp;покрытия экранов</span>
+        <span class="chip">Appium&nbsp;2.x</span>
+      </div>
+      <h1 data-hero>
+        <span class="h1-line">947 тестов.</span>
+        <span class="h1-line">Две платформы.</span>
+        <span class="h1-line">Один пайплайн.</span>
+      </h1>
+      <p class="hero-lead" data-hero>
+        Mobius — фреймворк мобильной автоматизации на Python, Appium 2.x и pytest:
+        экранные объекты, пул устройств, жесты и параллельные запуски Android и iOS.
+      </p>
+      <div class="btn-row hero-cta" data-hero>
+        <a class="btn btn-primary" href="https://github.com/ssrjkk/mobius" target="_blank" rel="noopener">Открыть репозиторий</a>
+        <a class="btn btn-glass" href="#demo">Посмотреть демо</a>
       </div>
 
-      <aside class="telemetry tickframe" aria-label="Показатели проекта">
-        <p class="kicker"><b>M-02</b> · телеметрия</p>
-        <div class="tele-rows">
-          <div class="tele-row"><span class="tele-num">947</span><span class="tele-label">тестов</span></div>
-          <div class="tele-row"><span class="tele-num">99%</span><span class="tele-label">покрытие</span></div>
-          <div class="tele-row"><span class="tele-num">2</span><span class="tele-label">платформы · Android / iOS</span></div>
+      <!-- Продуктовый мокап: стеклянная консоль пула устройств -->
+      <div class="console glass" data-hero>
+        <div class="console-grid">
+          <div class="devices">
+            <div class="phones" aria-hidden="true">
+              <div class="phone android">
+                <div class="phone-top"><span class="cam"></span></div>
+                <div class="phone-screen">
+                  <div class="ps-head"><b>mobius · android</b><span class="ps-live">сессия</span></div>
+                  <div class="ps-row live"><i></i>onboarding_screen</div>
+                  <div class="ps-row"><i></i>login_screen</div>
+                  <div class="ps-row"><i></i>search_screen</div>
+                  <div class="ps-row"><i></i>profile_screen</div>
+                  <div class="ps-gesture">tap · swipe · long_press</div>
+                </div>
+              </div>
+              <div class="phone ios">
+                <div class="phone-top"><span class="island"></span></div>
+                <div class="phone-screen">
+                  <div class="ps-head"><b>mobius · ios</b><span class="ps-live">сессия</span></div>
+                  <div class="ps-row"><i></i>splash_screen</div>
+                  <div class="ps-row live"><i></i>login_screen</div>
+                  <div class="ps-row"><i></i>catalog_screen</div>
+                  <div class="ps-row"><i></i>settings_screen</div>
+                  <div class="ps-gesture">tap · swipe · scroll</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="tele">
+            <div class="tele-head">
+              <span class="tele-title">ТЕЛЕМЕТРИЯ ПУЛА</span>
+              <span class="tele-state"><i aria-hidden="true"></i>готов</span>
+            </div>
+            <div class="tele-row">
+              <div class="tele-k">Очередь устройств</div>
+              <div style="margin-top:8px">
+                <div class="dev-q"><span><i class="i-busy" aria-hidden="true"></i>android-14</span>занят</div>
+                <div class="dev-q"><span><i class="i-busy" aria-hidden="true"></i>ios-17</span>занят</div>
+                <div class="dev-q"><span><i class="i-free" aria-hidden="true"></i>android-13</span>свободен</div>
+              </div>
+            </div>
+            <div class="tele-row" style="border-bottom:0">
+              <div class="lane">
+                <div class="lane-l"><span>поток A · Android</span><span>947/947</span></div>
+                <div class="lane-bar"><div class="lane-fill"></div></div>
+              </div>
+              <div class="lane ice">
+                <div class="lane-l"><span>поток B · iOS</span><span>947/947</span></div>
+                <div class="lane-bar"><div class="lane-fill"></div></div>
+              </div>
+            </div>
+          </div>
         </div>
-        <p class="kicker">пул устройств · схема</p>
-        <div class="pool" aria-hidden="true">
-          <span class="pool-cell on"><i></i>D-01</span>
-          <span class="pool-cell on"><i></i>D-02</span>
-          <span class="pool-cell on"><i></i>D-03</span>
-          <span class="pool-cell"><i></i>D-04</span>
-          <span class="pool-cell on"><i></i>D-05</span>
-          <span class="pool-cell"><i></i>D-06</span>
-        </div>
-        <p class="tele-note">947 тестов · 99% покрытия — данные проекта. Состояние пула — схема.</p>
-      </aside>
+      </div>
+      <p class="console-cap" data-hero>Локальная иллюстрация пула устройств и телеметрии запуска.</p>
     </div>
   </section>
 
-  <!-- 02 · МОДУЛИ -->
-  <section class="sec" id="modules" aria-labelledby="modules-title">
-    <div class="wrap">
-      <div class="sec-head">
-        <p class="kicker"><b>S-02</b> / возможности</p>
-        <h2 id="modules-title">Модули системы</h2>
-        <span class="rule" aria-hidden="true"></span>
-        <span class="idx">06 модулей</span>
+  <!-- ===== МЕТРИКИ ===== -->
+  <section class="metrics" aria-label="Ключевые цифры">
+    <div class="wrap metrics-grid">
+      <div class="mcell reveal">
+        <div class="mnum">947</div>
+        <div class="mlabel">тестов в пайплайне</div>
       </div>
-      <div class="mods">
-        <article class="mod tickframe">
-          <p class="mod-code">MO-01</p>
+      <div class="mcell reveal">
+        <div class="mnum ice">99%</div>
+        <div class="mlabel">покрытие экранных объектов</div>
+      </div>
+      <div class="mcell reveal">
+        <div class="mnum">2</div>
+        <div class="mlabel">платформы: Android и iOS</div>
+      </div>
+      <div class="mcell reveal">
+        <div class="mnum ice">1</div>
+        <div class="mlabel">пайплайн запуска для обеих</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ВОЗМОЖНОСТИ ===== -->
+  <section class="sec" id="features">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <p class="sec-label">Возможности</p>
+        <h2>Что внутри фреймворка</h2>
+        <p class="sec-sub">Шесть узлов, из которых собирается мобильный прогон: от описания экрана до отчёта о проверке.</p>
+      </div>
+      <div class="fgrid">
+        <article class="fcard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.8" width="10" height="18.4" rx="2.4"/><rect x="9.6" y="8" width="4.8" height="2.4" rx=".7"/><rect x="9.6" y="12.4" width="4.8" height="2.4" rx=".7"/><path d="M11 18.4h2"/></svg>
           <h3>Экранные объекты</h3>
-          <p>Каждый экран описан как объект: локаторы собраны в одном месте, шаги переиспользуются между тестами обеих платформ.</p>
+          <p>Каждый экран описан один раз: элементы, ожидания и действия живут в объекте, а не размазаны по тестам.</p>
         </article>
-        <article class="mod tickframe">
-          <p class="mod-code">MO-02</p>
+        <article class="fcard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4" width="17" height="6.6" rx="1.6"/><rect x="3.5" y="13.4" width="17" height="6.6" rx="1.6"/><path d="M7 7.3h.01"/><path d="M7 16.7h.01"/></svg>
           <h3>Пул устройств</h3>
-          <p>Устройства берутся из общего пула и освобождаются после прогона — тесты не привязаны к конкретному девайсу.</p>
+          <p>Тесты берут свободное устройство из пула и возвращают его после прогона — без ручного распределения.</p>
         </article>
-        <article class="mod tickframe">
-          <p class="mod-code">MO-03</p>
+        <article class="fcard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13.5" r="2.6"/><path d="M5.3 13.5A6.7 6.7 0 0 1 12 6.8"/><path d="M12 6.8a6.7 6.7 0 0 1 6.7 6.7"/></svg>
           <h3>Жесты</h3>
-          <p>Тапы, свайпы, ввод текста и системные жесты описаны единым слоем, одинаковым для Android и iOS.</p>
+          <p>Тап, свайп, долгое нажатие и ввод текста завёрнуты в шаги, которые читаются как сценарий.</p>
         </article>
-        <article class="mod tickframe">
-          <p class="mod-code">MO-04</p>
+        <article class="fcard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13"/><path d="m14 5 3 3-3 3"/><path d="M20 16H7"/><path d="m10 13-3 3 3 3"/></svg>
           <h3>Параллельные запуски</h3>
-          <p>Тесты расходятся по свободным устройствам: прогон не выстраивается в одну длинную очередь.</p>
+          <p>Android и iOS идут одновременно: платформы не ждут друг друга, пайплайн не простаивает.</p>
         </article>
-        <article class="mod tickframe">
-          <p class="mod-code">MO-05</p>
+        <article class="fcard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="m7 9.5 3 3-3 3"/><path d="M12.5 15.5H17"/></svg>
           <h3>Appium-сессия</h3>
-          <p>Жизненный цикл сессии Appium 2.x — создание, драйвер, завершение — управляется фикстурами pytest.</p>
+          <p>Сессия поднимается с capabilities платформы и закрывается сама — тест занимается только шагами.</p>
         </article>
-        <article class="mod tickframe">
-          <p class="mod-code">MO-06</p>
+        <article class="fcard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><rect x="8.5" y="2.3" width="7" height="3.4" rx="1"/><path d="m9.2 13.4 2 2 3.8-4"/></svg>
           <h3>Отчёт о проверке</h3>
-          <p>Результаты каждого прогона собираются в отчёт: что проверено, на каком устройстве и с каким итогом.</p>
+          <p>После прогона — отчёт: экран, шаг и причина падения видны сразу, без раскопок в логах.</p>
         </article>
       </div>
     </div>
   </section>
 
-  <!-- 03 · ЦЕПОЧКА -->
-  <section class="sec" id="pipeline" aria-labelledby="pipeline-title">
+  <!-- ===== КАК РАБОТАЕТ ===== -->
+  <section class="sec" id="how" style="padding-top:0">
     <div class="wrap">
-      <div class="sec-head">
-        <p class="kicker"><b>S-03</b> / процесс</p>
-        <h2 id="pipeline-title">Цепочка прогона</h2>
-        <span class="rule" aria-hidden="true"></span>
-        <span class="idx">4 шага</span>
+      <div class="sec-head reveal">
+        <p class="sec-label">Как работает</p>
+        <h2>От экрана до отчёта — четыре шага</h2>
+        <p class="sec-sub">Одинаково для Android и iOS: меняются только capabilities платформы.</p>
       </div>
-      <ol class="steps" style="list-style:none">
-        <li class="step">
-          <div class="step-top"><span class="step-num" aria-hidden="true">01</span></div>
+      <div class="proc-grid">
+        <div class="proc-track" aria-hidden="true"><span class="proc-fill"></span></div>
+        <div class="step">
+          <span class="num">01</span>
           <h3>Экранный объект</h3>
-          <p>Экран приложения описывается один раз — как объект с локаторами и шагами.</p>
-        </li>
-        <li class="step">
-          <div class="step-top"><span class="step-num" aria-hidden="true">02</span></div>
+          <p>Экран описывается объектом с элементами и действиями в одном месте.</p>
+        </div>
+        <div class="step">
+          <span class="num">02</span>
           <h3>Пул устройств</h3>
-          <p>Тест берёт свободное устройство из пула и работает именно с ним.</p>
-        </li>
-        <li class="step">
-          <div class="step-top"><span class="step-num" aria-hidden="true">03</span></div>
+          <p>Тест занимает свободное устройство из пула и освобождает его после прогона.</p>
+        </div>
+        <div class="step">
+          <span class="num">03</span>
           <h3>Appium-сессия</h3>
-          <p>Открывается сессия Appium 2.x, и сценарий проходит на реальной платформе.</p>
-        </li>
-        <li class="step">
-          <div class="step-top"><span class="step-num" aria-hidden="true">04</span></div>
+          <p>Поднимается сессия с capabilities платформы и выполняет шаги сценария.</p>
+        </div>
+        <div class="step">
+          <span class="num">04</span>
           <h3>Отчёт</h3>
-          <p>Итог проверки попадает в отчёт прогона — с устройством и результатом.</p>
-        </li>
-      </ol>
-    </div>
-  </section>
-
-  <!-- 04 · КОНСОЛЬ -->
-  <section class="sec" id="console" aria-labelledby="console-title">
-    <div class="wrap">
-      <div class="sec-head">
-        <p class="kicker"><b>S-04</b> / демо</p>
-        <h2 id="console-title">Консоль платформы</h2>
-        <span class="rule" aria-hidden="true"></span>
-        <span class="idx">локальная иллюстрация</span>
-      </div>
-      <div class="demo-grid">
-        <div class="demo-stage tickframe">
-          <div class="demo-toggle" role="group" aria-label="Выбор платформы">
-            <button type="button" data-p="android" aria-pressed="true">Android</button>
-            <button type="button" data-p="ios" aria-pressed="false">iOS</button>
-          </div>
-          <div class="device" aria-hidden="true">
-            <p class="device-top"><span>mob · demo</span><b id="d-plat">ANDROID</b></p>
-            <ul class="obj-tree" id="d-tree"></ul>
-            <div class="device-log" id="d-log"></div>
-          </div>
-        </div>
-        <div class="demo-data" aria-live="polite">
-          <dl>
-            <div class="data-row">
-              <dt>Платформа</dt>
-              <dd id="dd-platform">Android</dd>
-            </div>
-            <div class="data-row">
-              <dt>Драйвер</dt>
-              <dd id="dd-driver">UiAutomator2</dd>
-            </div>
-            <div class="data-row">
-              <dt>Устройство</dt>
-              <dd id="dd-device">Pixel 8 · API 34</dd>
-            </div>
-            <div class="data-row">
-              <dt>Капабилити</dt>
-              <dd><code id="dd-caps">appium:automationName = UiAutomator2</code></dd>
-            </div>
-          </dl>
-          <p class="caution"><span class="caution-mark" aria-hidden="true">!</span>для запуска нужны Android SDK, UiAutomator2 и доступное устройство; локальная иллюстрация</p>
+          <p>Итог и шаги падения попадают в отчёт с привязкой к экрану.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- 05 · ЗАПУСК -->
-  <section class="sec" id="run" aria-labelledby="run-title">
+  <!-- ===== ДЕМО ===== -->
+  <section class="sec" id="demo" style="padding-top:0">
     <div class="wrap">
-      <div class="sec-head">
-        <p class="kicker"><b>S-05</b> / запуск</p>
-        <h2 id="run-title">Поднять систему</h2>
-        <span class="rule" aria-hidden="true"></span>
-        <span class="idx">git</span>
+      <div class="sec-head reveal">
+        <p class="sec-label">Демо</p>
+        <h2>Выберите платформу</h2>
+        <p class="sec-sub">Так выглядит запуск сценария: capabilities платформы и жесты по экранным объектам.</p>
       </div>
-      <div class="term">
-        <p class="term-head"><span><b>терминал</b> // запуск проекта</span><span>bash</span></p>
-<pre><span class="p">$</span> git clone https://github.com/ssrjkk/mobius.git
-<span class="p">$</span> cd mobius
-<span class="c"># далее — по README репозитория</span></pre>
+      <div class="demo-panel glass reveal">
+        <div class="demo-top">
+          <div class="tabs" role="tablist" aria-label="Платформа">
+            <button class="tab" role="tab" id="tab-android" aria-selected="true" aria-controls="pane-android" data-platform="android" type="button">Android</button>
+            <button class="tab" role="tab" id="tab-ios" aria-selected="false" aria-controls="pane-ios" data-platform="ios" type="button">iOS</button>
+          </div>
+          <span class="demo-flag">локальная иллюстрация</span>
+        </div>
+
+        <div class="demo-pane" id="pane-android" role="tabpanel" aria-labelledby="tab-android" data-platform="android">
+          <div class="cap-block">
+            <div class="cap-title">CAPABILITIES</div>
+<pre>options = {
+  <span class="k">"platformName"</span>:    <span class="s">"Android"</span>,
+  <span class="k">"automationName"</span>:  <span class="s">"UiAutomator2"</span>,
+  <span class="k">"deviceName"</span>:      <span class="s">"emulator-5554"</span>,
+  <span class="k">"platformVersion"</span>: <span class="s">"14"</span>,
+}</pre>
+          </div>
+          <div class="mini-phone" aria-hidden="true">
+            <div class="mp-head"><b>сценарий · sign_in</b><span>android-14</span></div>
+            <div class="gstep lit"><i></i>tap(login_field)</div>
+            <div class="gstep lit"><i></i>send_keys(user)</div>
+            <div class="gstep lit"><i></i>tap(sign_in)</div>
+            <div class="gstep lit"><i></i>assert(home_screen)</div>
+            <div class="mp-foot">шаги исполняются поверх экранных объектов</div>
+          </div>
+        </div>
+
+        <div class="demo-pane" id="pane-ios" role="tabpanel" aria-labelledby="tab-ios" data-platform="ios" hidden>
+          <div class="cap-block">
+            <div class="cap-title">CAPABILITIES</div>
+<pre>options = {
+  <span class="k">"platformName"</span>:    <span class="s">"iOS"</span>,
+  <span class="k">"automationName"</span>:  <span class="s">"XCUITest"</span>,
+  <span class="k">"deviceName"</span>:      <span class="s">"iPhone 15"</span>,
+  <span class="k">"platformVersion"</span>: <span class="s">"17.4"</span>,
+}</pre>
+          </div>
+          <div class="mini-phone" aria-hidden="true">
+            <div class="mp-head"><b>сценарий · sign_in</b><span>ios-17</span></div>
+            <div class="gstep lit"><i></i>tap(login_field)</div>
+            <div class="gstep lit"><i></i>send_keys(user)</div>
+            <div class="gstep lit"><i></i>tap(sign_in)</div>
+            <div class="gstep lit"><i></i>assert(home_screen)</div>
+            <div class="mp-foot">тот же сценарий — другой драйвер</div>
+          </div>
+        </div>
+
+        <div class="demo-actions">
+          <button class="btn btn-primary" id="demo-run" type="button">Прогнать сценарий</button>
+          <p class="demo-cap">Для реального запуска нужны Android SDK, UiAutomator2 и доступное устройство (для iOS — Xcode и WebDriverAgent); здесь — иллюстрация без внешних систем.</p>
+        </div>
       </div>
-      <p class="run-note">Репозиторий открыт: <a href="https://github.com/ssrjkk/mobius" target="_blank" rel="noopener">github.com/ssrjkk/mobius</a>. Требования к окружению описаны в README — здесь их сознательно не дублируют.</p>
     </div>
   </section>
+
+  <!-- ===== CTA-ФИНАЛ ===== -->
+  <section class="cta-wrap">
+    <div class="wrap">
+      <div class="cta-panel glass reveal">
+        <p class="sec-label" style="justify-content:center">Репозиторий</p>
+        <h2>Соберите две платформы в один пайплайн</h2>
+        <p>Экранные объекты, пул и запуск уже собраны — смотрите код и адаптируйте под свой проект.</p>
+        <div class="btn-row">
+          <a class="btn btn-primary" href="https://github.com/ssrjkk/mobius" target="_blank" rel="noopener">Открыть репозиторий</a>
+          <a class="btn btn-glass" href="https://ssrjkk.github.io/" target="_blank" rel="noopener">Другие проекты</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
 </main>
 
-<!-- 06 · БАЗА -->
-<footer class="footer">
-  <div class="wrap">
-    <p class="footer-brand">Проект SSRJKK</p>
-    <p class="footer-note">Mobius · мобильная автоматизация Android/iOS · Python · Appium 2.x · pytest</p>
-    <a class="footer-link" href="https://github.com/ssrjkk/mobius" target="_blank" rel="noopener">Репозиторий Mobius ↗</a>
-    <a class="footer-link" href="https://ssrjkk.github.io/" target="_blank" rel="noopener">Все проекты ↗</a>
+<footer>
+  <div class="wrap foot-in">
+    <span class="foot-brand">Проект SSRJKK</span>
+    <nav class="foot-links" aria-label="Ссылки">
+      <a href="https://github.com/ssrjkk/mobius" target="_blank" rel="noopener">ssrjkk/mobius ↗</a>
+      <a href="https://ssrjkk.github.io/" target="_blank" rel="noopener">Все проекты ↗</a>
+    </nav>
   </div>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
 <script>
-(function(){
-  "use strict";
-  var DATA = {
-    android: {
-      plat: "ANDROID", platform: "Android", driver: "UiAutomator2",
-      device: "Pixel 8 · API 34", caps: "appium:automationName = UiAutomator2",
-      tree: [
-        ["screen.auth", "готов"],
-        ["field.email", "найден"],
-        ["field.password", "найден"],
-        ["button.submit", "найден"]
-      ],
-      log: [
-        ["00:00:01", "сессия открыта · UiAutomator2"],
-        ["00:00:02", "экранный объект собран"],
-        ["00:00:03", "жест: tap → button.submit"],
-        ["00:00:04", "проверка пройдена · отчёт обновлён"]
-      ]
-    },
-    ios: {
-      plat: "IOS", platform: "iOS", driver: "XCUITest",
-      device: "iPhone 15 · iOS 17", caps: "appium:automationName = XCUITest",
-      tree: [
-        ["screen.auth", "готов"],
-        ["field.email", "найден"],
-        ["field.password", "найден"],
-        ["button.submit", "найден"]
-      ],
-      log: [
-        ["00:00:01", "сессия открыта · XCUITest"],
-        ["00:00:02", "экранный объект собран"],
-        ["00:00:03", "жест: tap → button.submit"],
-        ["00:00:04", "проверка пройдена · отчёт обновлён"]
-      ]
+(function () {
+  'use strict';
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var hasGsap = !!(window.gsap && window.ScrollTrigger);
+
+  /* Моушен недоступен или не нужен — вернуть всё в видимое состояние */
+  if (!hasGsap || reduce) {
+    document.documentElement.classList.remove('anim');
+  }
+
+  /* ---- Демо: табы платформ (работают без GSAP) ---- */
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+  var panes = Array.prototype.slice.call(document.querySelectorAll('.demo-pane'));
+  function selectTab(tab) {
+    tabs.forEach(function (t) { t.setAttribute('aria-selected', t === tab ? 'true' : 'false'); });
+    panes.forEach(function (p) {
+      var active = p.dataset.platform === tab.dataset.platform;
+      p.hidden = !active;
+      if (active && hasGsap && !reduce) {
+        gsap.fromTo(p, { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: .35, ease: 'power2.out', overwrite: true });
+      }
+    });
+  }
+  tabs.forEach(function (t) { t.addEventListener('click', function () { selectTab(t); }); });
+
+  /* ---- Демо: прогон сценария по шагам ---- */
+  var steps = Array.prototype.slice.call(document.querySelectorAll('.demo-pane:not([hidden]) .gstep'));
+  function runScenario() {
+    var active = Array.prototype.slice.call(document.querySelectorAll('.demo-pane:not([hidden]) .gstep'));
+    if (!active.length) return;
+    if (hasGsap && !reduce) {
+      active.forEach(function (s) { s.classList.remove('lit'); });
+      var tl = gsap.timeline();
+      active.forEach(function (s, i) {
+        tl.call(function () { s.classList.add('lit'); }, null, 0.22 + i * 0.4);
+      });
+    } else {
+      active.forEach(function (s) { s.classList.add('lit'); });
     }
-  };
-
-  var buttons = document.querySelectorAll(".demo-toggle button");
-  var elPlat = document.getElementById("d-plat");
-  var elTree = document.getElementById("d-tree");
-  var elLog = document.getElementById("d-log");
-  var ddPlatform = document.getElementById("dd-platform");
-  var ddDriver = document.getElementById("dd-driver");
-  var ddDevice = document.getElementById("dd-device");
-  var ddCaps = document.getElementById("dd-caps");
-
-  function esc(s){
-    return String(s).replace(/[&<>"']/g, function(c){
-      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
-    });
   }
+  var runBtn = document.getElementById('demo-run');
+  if (runBtn) runBtn.addEventListener('click', runScenario);
 
-  function render(key){
-    var d = DATA[key];
-    if (!d) return;
-    elPlat.textContent = d.plat;
-    ddPlatform.textContent = d.platform;
-    ddDriver.textContent = d.driver;
-    ddDevice.textContent = d.device;
-    ddCaps.textContent = d.caps;
-    elTree.innerHTML = d.tree.map(function(row){
-      return '<li><span>' + esc(row[0]) + '</span><span class="obj-status">' + esc(row[1]) + '</span></li>';
-    }).join("");
-    elLog.innerHTML = d.log.map(function(row){
-      return '<span><span class="t">[' + esc(row[0]) + ']</span><span class="m">' + esc(row[1]) + '</span></span>';
-    }).join("");
-    buttons.forEach(function(b){
-      b.setAttribute("aria-pressed", b.dataset.p === key ? "true" : "false");
+  if (!hasGsap || reduce) return;
+
+  gsap.registerPlugin(ScrollTrigger);
+
+  /* Вход хиро каскадом */
+  gsap.to('[data-hero]', { y: 0, autoAlpha: 1, duration: .7, stagger: .1, ease: 'power3.out', delay: .05 });
+  gsap.to('.phone', { y: 0, autoAlpha: 1, duration: .8, stagger: .14, ease: 'power3.out', delay: .5 });
+  gsap.to('.tele-row', { x: 0, autoAlpha: 1, duration: .5, stagger: .09, ease: 'power2.out', delay: .75 });
+  gsap.to('.lane-fill', { scaleX: 1, duration: .9, ease: 'power2.inOut', delay: 1.05 });
+
+  /* Scroll-ревилы */
+  gsap.utils.toArray('.reveal').forEach(function (el) {
+    gsap.to(el, {
+      y: 0, autoAlpha: 1, duration: .75, ease: 'power3.out',
+      scrollTrigger: { trigger: el, start: 'top 86%', once: true }
     });
-  }
-
-  buttons.forEach(function(b){
-    b.addEventListener("click", function(){ render(b.dataset.p); });
   });
 
-  render("android");
+  /* Карточки возможностей каскадом */
+  gsap.set('.fcard', { y: 22, autoAlpha: 0 });
+  ScrollTrigger.batch('.fcard', {
+    start: 'top 88%', once: true,
+    onEnter: function (b) {
+      gsap.to(b, { y: 0, autoAlpha: 1, duration: .55, stagger: .08, ease: 'power3.out', overwrite: true });
+    }
+  });
+
+  /* Линия процесса: заливка по скроллу */
+  gsap.fromTo('.proc-fill', { scaleX: 0 }, {
+    scaleX: 1, ease: 'none',
+    scrollTrigger: { trigger: '.proc-grid', start: 'top 78%', end: 'bottom 55%', scrub: .4 }
+  });
+
+  /* Пересчёт после загрузки шрифтов */
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () { ScrollTrigger.refresh(); });
+  }
 })();
 </script>
 </body>
