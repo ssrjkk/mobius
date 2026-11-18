@@ -766,30 +766,46 @@
   /* ---- Lenis: инерционный скролл поверх того же ScrollTrigger ----
      Lenis двигает нативный скролл, поэтому прокси скроллера не нужен;
      raf библиотеки едет на тикере GSAP — у всей анимации один источник
-     времени, и скролл не разъезжается с твинами на просадке кадров. */
-  var lenis = new Lenis({
-    duration: 1.05,
-    smoothWheel: true,
-    touchMultiplier: 1.6,
-    easing: function (t) { return Math.min(1, 1.001 - Math.pow(2, -10 * t)); }
-  });
-  lenis.on('scroll', ScrollTrigger.update);
-  gsap.ticker.add(function (time) { lenis.raf(time * 1000); });
-  gsap.ticker.lagSmoothing(0);
+     времени, и скролл не разъезжается с твинами на просадке кадров.
+     Библиотека своя, но лежать из-за неё витрине не права: без проверки
+     new Lenis падал с «Lenis is not defined», IIFE обрывался до каскада
+     хиро и 129 элементов оставались с opacity:0 (проверено блокировкой
+     бандла). Нет Lenis — остаётся штатный скролл браузера. */
+  var lenis = null;
+  if (typeof Lenis === 'function') {
+    try {
+      lenis = new Lenis({
+        duration: 1.05,
+        smoothWheel: true,
+        touchMultiplier: 1.6,
+        easing: function (t) { return Math.min(1, 1.001 - Math.pow(2, -10 * t)); }
+      });
+      lenis.on('scroll', ScrollTrigger.update);
+      gsap.ticker.add(function (time) { lenis.raf(time * 1000); });
+      gsap.ticker.lagSmoothing(0);
+    } catch (e) {
+      lenis = null;
+    }
+  }
 
-  /* Якоря: смещение брать не надо — LenisResolver уже учитывает
-     section{scroll-margin-top}, и ручная поправка на 88 уводила на 88 px
-     выше штатной позиции. Клик с клавиатуры (detail === 0) и клики с
-     модификаторами отдаём браузеру: у skip-link перевод фокуса должен
-     остаться штатным. */
+  /* Якорь считаем числом от фактического window.scrollY: для цели-элемента
+     Lenis складывает живую rect.top со своим внутренним animatedScroll, и
+     если браузер только что прыгнул мгновенно (фокус по Tab, автопрокрутка
+     перед кликом), слагающиеся расходятся — клик уезжал на 663 px мимо или
+     не ехал вовсе. scroll-margin-top снимаем сами, как это делал Lenis.
+     Клик с клавиатуры (detail === 0) и клики с модификаторами отдаём
+     браузеру: у skip-link перевод фокуса должен остаться штатным. */
   document.addEventListener('click', function (e) {
     if (e.detail === 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     var a = e.target.closest && e.target.closest('a[href^="#"]');
     if (!a || a.classList.contains('skip')) return;
     var target = document.getElementById(a.getAttribute('href').slice(1));
     if (!target) return;
+    if (!lenis) return;
     e.preventDefault();
-    lenis.scrollTo(target, { duration: 1.15 });
+    var margin = parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
+    lenis.scrollTo(target.getBoundingClientRect().top + window.scrollY - margin,
+                   { duration: 1.15 });
     history.replaceState(null, '', a.getAttribute('href'));
   });
 
