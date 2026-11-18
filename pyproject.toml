@@ -97,6 +97,7 @@ markers = [
     "slow: tests > 30s",
     "perf: performance tests",
     "a11y: accessibility tests",
+    "browser: опциональный браузерный гейт (Playwright + Chromium), см. tests/unit/test_landing_cls.py",
 ]
 
 [tool.coverage.run]
