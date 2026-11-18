@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -193,5 +195,6 @@ class TestRetryDecoratorEdgeCase:
             capture_output=True,
             text=True,
             check=False,
+            env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[2])},
         )
         assert "OK_STALE" in result.stdout, f"stdout={result.stdout!r} stderr={result.stderr!r}"
