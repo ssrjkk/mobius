@@ -62,7 +62,7 @@ test = [
 ]
 lint = [
     "ruff>=0.17.2",
-    "mypy>=2.4.0",
+    "mypy>=2.4.1",
     "bandit>=1.9.4",
     "pip-audit>=2.10.1",
 ]
