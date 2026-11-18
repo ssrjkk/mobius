@@ -1,0 +1,4 @@
+# docs/ отдаётся GitHub Pages как есть, без сборки: байты в репозитории = байты
+# на сайте. Vendored-файлы фиксируем побайтово, иначе core.autocrlf на Windows
+# разойдётся с sha256 из docs/assets/lock.json.
+docs/assets/** -text

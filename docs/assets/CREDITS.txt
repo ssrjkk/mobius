@@ -1,0 +1,14 @@
+Шрифты (assets/fonts/, SIL OFL 1.1) — переменные начертания, subsets latin + cyrillic:
+  Manrope Variable 200–800  @fontsource-variable/manrope@5.3.0 (файлы 200 800, axis wght)
+  JetBrains Mono Variable 100–800  @fontsource-variable/jetbrains-mono@5.3.0
+Семейства те же, что страницы просили у Google Fonts раньше; теперь файлы лежат здесь,
+и кириллица в заголовках и подписях печатается ими, а не системным fallback.
+
+Библиотеки (assets/vendor/):
+  gsap.min.js, ScrollTrigger.min.js — GSAP 3.12.5, GreenSock standard license (бесплатна
+    для использования в открытых проектах, без перепродажи)
+  lenis.min.js — Lenis 1.3.27, MIT
+
+Иконки (inline в index.html, класс lucide lucide-*) — Lucide 1.75.0, ISC:
+  smartphone, server, mouse-pointer-click, repeat, square-terminal, clipboard-check
+  stroke-width оставлен 1.6, как в исходной разметке, а не 2, как в дефолте Lucide.

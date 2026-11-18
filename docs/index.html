@@ -6,11 +6,31 @@
 <title>Mobius — 947 тестов. Две платформы. Один пайплайн.</title>
 <meta name="description" content="Mobius — мобильная автоматизация Android и iOS на Python, Appium 2.x и pytest: 947 тестов, 99% покрытия, экранные объекты, пул устройств, жесты и параллельные запуски.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230A0F1E'/%3E%3Crect x='7' y='9' width='8' height='14' rx='2.5' fill='%232DD4BF'/%3E%3Crect x='17' y='9' width='8' height='14' rx='2.5' fill='%237DD3FC'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preload" href="assets/fonts/manrope-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/manrope-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/jetbrains-mono-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/jetbrains-mono-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <script>document.documentElement.classList.add('anim');</script>
 <style>
+  /* ---------- шрифты: свои файлы, внешних CDN нет ----------
+     Manrope и JetBrains Mono — переменные начертания @fontsource-variable
+     (OFL 1.1), subsets latin + cyrillic: русские заголовки и подписи к
+     консоли печатаются ими же, а не системным fallback. Диапазон веса
+     объявлен осью (200 800 / 100 800), а не одним значением, иначе все
+     начертания встали бы в инстанс по умолчанию. */
+  @font-face{font-family:'Manrope';font-style:normal;font-weight:200 800;font-display:swap;
+    src:url('assets/fonts/manrope-latin-wght-normal.woff2') format('woff2');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+  @font-face{font-family:'Manrope';font-style:normal;font-weight:200 800;font-display:swap;
+    src:url('assets/fonts/manrope-cyrillic-wght-normal.woff2') format('woff2');
+    unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+  @font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:100 800;font-display:swap;
+    src:url('assets/fonts/jetbrains-mono-latin-wght-normal.woff2') format('woff2');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+  @font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:100 800;font-display:swap;
+    src:url('assets/fonts/jetbrains-mono-cyrillic-wght-normal.woff2') format('woff2');
+    unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+
   :root{
     --bg:#0A0F1E;
     --bg2:#0D1526;
@@ -70,6 +90,15 @@
     *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
   }
 
+  /* ---------- плавный скролл (штатные CSS-стили Lenis) ----------
+     Класс навешивает сам Lenis при инициализации. Прокрутку ведёт он,
+     поэтому нативную надо выключить: иначе один и тот же скролл
+     обрабатывают две подсистемы и якоря дёргаются. */
+  html.lenis{height:auto}
+  .lenis.lenis-smooth{scroll-behavior:auto !important}
+  .lenis.lenis-smooth [data-lenis-prevent]{overscroll-behavior:contain}
+  .lenis.lenis-stopped{overflow:hidden}
+
   /* ---------- стеклянная поверхность ---------- */
   .glass{
     background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.015)),rgba(30,41,59,.5);
@@ -105,6 +134,7 @@
   .btn-primary:hover{background:var(--teal-bright);transform:translateY(-1px)}
   .btn-glass{border-color:rgba(255,255,255,.22);color:var(--fg);background:rgba(255,255,255,.03)}
   .btn-glass:hover{border-color:rgba(255,255,255,.44)}
+  .btn:active{transform:translateY(0) scale(.98)}
   .btn-sm{height:38px;padding:0 16px;font-size:.85rem;border-radius:10px}
   .btn-row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
 
@@ -500,32 +530,32 @@
       </div>
       <div class="fgrid">
         <article class="fcard">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.8" width="10" height="18.4" rx="2.4"/><rect x="9.6" y="8" width="4.8" height="2.4" rx=".7"/><rect x="9.6" y="12.4" width="4.8" height="2.4" rx=".7"/><path d="M11 18.4h2"/></svg>
+          <svg class="lucide lucide-smartphone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
           <h3>Экранные объекты</h3>
           <p>Каждый экран описан один раз: элементы, ожидания и действия живут в объекте, а не размазаны по тестам.</p>
         </article>
         <article class="fcard">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4" width="17" height="6.6" rx="1.6"/><rect x="3.5" y="13.4" width="17" height="6.6" rx="1.6"/><path d="M7 7.3h.01"/><path d="M7 16.7h.01"/></svg>
+          <svg class="lucide lucide-server" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
           <h3>Пул устройств</h3>
           <p>Тесты берут свободное устройство из пула и возвращают его после прогона — без ручного распределения.</p>
         </article>
         <article class="fcard">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13.5" r="2.6"/><path d="M5.3 13.5A6.7 6.7 0 0 1 12 6.8"/><path d="M12 6.8a6.7 6.7 0 0 1 6.7 6.7"/></svg>
+          <svg class="lucide lucide-mouse-pointer-click" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4.1 12 6"/><path d="m5.1 8-2.9-.8"/><path d="m6 12-1.9 2"/><path d="M7.2 2.2 8 5.1"/><path d="M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"/></svg>
           <h3>Жесты</h3>
           <p>Тап, свайп, долгое нажатие и ввод текста завёрнуты в шаги, которые читаются как сценарий.</p>
         </article>
         <article class="fcard">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13"/><path d="m14 5 3 3-3 3"/><path d="M20 16H7"/><path d="m10 13-3 3 3 3"/></svg>
+          <svg class="lucide lucide-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
           <h3>Параллельные запуски</h3>
           <p>Android и iOS идут одновременно: платформы не ждут друг друга, пайплайн не простаивает.</p>
         </article>
         <article class="fcard">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="m7 9.5 3 3-3 3"/><path d="M12.5 15.5H17"/></svg>
+          <svg class="lucide lucide-square-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 11 2-2-2-2"/><path d="M11 13h4"/><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/></svg>
           <h3>Appium-сессия</h3>
           <p>Сессия поднимается с capabilities платформы и закрывается сама — тест занимается только шагами.</p>
         </article>
         <article class="fcard">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><rect x="8.5" y="2.3" width="7" height="3.4" rx="1"/><path d="m9.2 13.4 2 2 3.8-4"/></svg>
+          <svg class="lucide lucide-clipboard-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
           <h3>Отчёт о проверке</h3>
           <p>После прогона — отчёт: экран, шаг и причина падения видны сразу, без раскопок в логах.</p>
         </article>
@@ -659,17 +689,49 @@
   </div>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="assets/vendor/gsap.min.js"></script>
+<script src="assets/vendor/ScrollTrigger.min.js"></script>
+<script src="assets/vendor/lenis.min.js"></script>
 <script>
 (function () {
   'use strict';
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var hasGsap = !!(window.gsap && window.ScrollTrigger);
+  var motion = hasGsap && !reduce;
 
   /* Моушен недоступен или не нужен — вернуть всё в видимое состояние */
-  if (!hasGsap || reduce) {
+  if (!motion) {
     document.documentElement.classList.remove('anim');
+  }
+
+  /* ---- Демо: шаги сценария ----
+     Одна функция на два случая: переключение платформы (быстро, строки
+     только подтверждают, что панель живая) и прогон по кнопке (шаги
+     идут раздельно, с опережением и доводом — как настоящий проход).
+     Без GSAP и при reduce остаётся ровно то, что было: мгновенно lit. */
+  function lightPane(pane, quick) {
+    var rows = Array.prototype.slice.call(pane.querySelectorAll('.gstep'));
+    if (!rows.length) return;
+    rows.forEach(function (s) { s.classList.remove('lit'); });
+    if (!motion) {
+      rows.forEach(function (s) { s.classList.add('lit'); });
+      return;
+    }
+    var gap = quick ? .11 : .4, lead = quick ? .18 : .22;
+    var tl = gsap.timeline();
+    rows.forEach(function (s, i) {
+      tl.call(function () {
+        s.classList.add('lit');
+        gsap.fromTo(s, { x: -6 }, {
+          x: 0, duration: .34, ease: 'power3.out',
+          overwrite: true, clearProps: 'transform'
+        });
+        gsap.fromTo(s.querySelector('i'), { scale: .3 }, {
+          scale: 1, duration: .46, ease: 'back.out(3)',
+          overwrite: true, clearProps: 'transform'
+        });
+      }, null, lead + i * gap);
+    });
   }
 
   /* ---- Демо: табы платформ (работают без GSAP) ---- */
@@ -680,34 +742,56 @@
     panes.forEach(function (p) {
       var active = p.dataset.platform === tab.dataset.platform;
       p.hidden = !active;
-      if (active && hasGsap && !reduce) {
+      if (!active) return;
+      if (motion) {
         gsap.fromTo(p, { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: .35, ease: 'power2.out', overwrite: true });
       }
+      lightPane(p, true);
     });
   }
   tabs.forEach(function (t) { t.addEventListener('click', function () { selectTab(t); }); });
 
   /* ---- Демо: прогон сценария по шагам ---- */
-  var steps = Array.prototype.slice.call(document.querySelectorAll('.demo-pane:not([hidden]) .gstep'));
   function runScenario() {
-    var active = Array.prototype.slice.call(document.querySelectorAll('.demo-pane:not([hidden]) .gstep'));
-    if (!active.length) return;
-    if (hasGsap && !reduce) {
-      active.forEach(function (s) { s.classList.remove('lit'); });
-      var tl = gsap.timeline();
-      active.forEach(function (s, i) {
-        tl.call(function () { s.classList.add('lit'); }, null, 0.22 + i * 0.4);
-      });
-    } else {
-      active.forEach(function (s) { s.classList.add('lit'); });
-    }
+    var pane = document.querySelector('.demo-pane:not([hidden])');
+    if (pane) lightPane(pane, false);
   }
   var runBtn = document.getElementById('demo-run');
   if (runBtn) runBtn.addEventListener('click', runScenario);
 
-  if (!hasGsap || reduce) return;
+  if (!motion) return;
 
   gsap.registerPlugin(ScrollTrigger);
+
+  /* ---- Lenis: инерционный скролл поверх того же ScrollTrigger ----
+     Lenis двигает нативный скролл, поэтому прокси скроллера не нужен;
+     raf библиотеки едет на тикере GSAP — у всей анимации один источник
+     времени, и скролл не разъезжается с твинами на просадке кадров. */
+  var lenis = new Lenis({
+    duration: 1.05,
+    smoothWheel: true,
+    touchMultiplier: 1.6,
+    easing: function (t) { return Math.min(1, 1.001 - Math.pow(2, -10 * t)); }
+  });
+  lenis.on('scroll', ScrollTrigger.update);
+  gsap.ticker.add(function (time) { lenis.raf(time * 1000); });
+  gsap.ticker.lagSmoothing(0);
+
+  /* Якоря: смещение брать не надо — LenisResolver уже учитывает
+     section{scroll-margin-top}, и ручная поправка на 88 уводила на 88 px
+     выше штатной позиции. Клик с клавиатуры (detail === 0) и клики с
+     модификаторами отдаём браузеру: у skip-link перевод фокуса должен
+     остаться штатным. */
+  document.addEventListener('click', function (e) {
+    if (e.detail === 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var a = e.target.closest && e.target.closest('a[href^="#"]');
+    if (!a || a.classList.contains('skip')) return;
+    var target = document.getElementById(a.getAttribute('href').slice(1));
+    if (!target) return;
+    e.preventDefault();
+    lenis.scrollTo(target, { duration: 1.15 });
+    history.replaceState(null, '', a.getAttribute('href'));
+  });
 
   /* Вход хиро каскадом */
   gsap.to('[data-hero]', { y: 0, autoAlpha: 1, duration: .7, stagger: .1, ease: 'power3.out', delay: .05 });
@@ -736,6 +820,26 @@
   gsap.fromTo('.proc-fill', { scaleX: 0 }, {
     scaleX: 1, ease: 'none',
     scrollTrigger: { trigger: '.proc-grid', start: 'top 78%', end: 'bottom 55%', scrub: .4 }
+  });
+
+  /* Метрики: цифра догоняет подпись. .mnum набран моноширинным
+     JetBrains Mono, поэтому разряды не гуляют по ширине, а блок стоит в
+     сетке — сдвига вёрстки на прокрутке нет. */
+  gsap.utils.toArray('.mnum').forEach(function (el) {
+    var final = el.textContent.trim();
+    var parsed = /^(\d+)(.*)$/.exec(final);
+    if (!parsed || +parsed[1] < 10) return;
+    var value = +parsed[1], suffix = parsed[2], shown = { v: 0 };
+    ScrollTrigger.create({
+      trigger: el, start: 'top 90%', once: true,
+      onEnter: function () {
+        gsap.to(shown, {
+          v: value, duration: 1.2, ease: 'power2.out',
+          onUpdate: function () { el.textContent = Math.round(shown.v) + suffix; },
+          onComplete: function () { el.textContent = final; }
+        });
+      }
+    });
   });
 
   /* Пересчёт после загрузки шрифтов */
