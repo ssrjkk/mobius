@@ -88,14 +88,19 @@ def live_api(request: pytest.FixtureRequest) -> bool:
 def api_client(live_api: bool):
     """
     httpx клиент — реальный или с respx моками.
+
+    trust_env=False обязателен: машинные прокси-переменные не имеют права влиять
+    на прогон. На Windows системный прокси выписывает в NO_PROXY запись `[::1]`,
+    и httpx спотыкается о неё при *создании* клиента — InvalidURL: Invalid port
+    ':1]' — то есть весь api-сватьй падал на этапе фикстуры, а не на ассертах.
     """
     if live_api:
-        with httpx.Client(base_url=BASE_MOCK, timeout=10) as client:
+        with httpx.Client(base_url=BASE_MOCK, timeout=10, trust_env=False) as client:
             yield client
     else:
         with respx.mock(base_url=BASE_MOCK, assert_all_called=False) as mock:
             _setup_mocks(mock)
-            with httpx.Client(base_url=BASE_MOCK) as client:
+            with httpx.Client(base_url=BASE_MOCK, trust_env=False) as client:
                 yield client
 
 

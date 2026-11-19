@@ -57,8 +57,8 @@ PALETTE = {
 }
 
 # Копирайт и структура принятого дизайна — слой движения их не трогает.
-FROZEN_TITLE = "Mobius — 947 тестов. Две платформы. Один пайплайн."
-FROZEN_H1 = ["947 тестов.", "Две платформы.", "Один пайплайн."]
+FROZEN_TITLE = "Mobius — 950 тестов. Две платформы. Один пайплайн."
+FROZEN_H1 = ["950 тестов.", "Две платформы.", "Один пайплайн."]
 FROZEN_H2 = [
     "Что внутри фреймворка",
     "От экрана до отчёта — четыре шага",
@@ -83,6 +83,9 @@ ALLOWED_ABS_URLS = {
     "http://www.w3.org/2000/svg",
     "https://github.com/ssrjkk/mobius",
     "https://ssrjkk.github.io/",
+    # canonical и og:image — метаданные для краулеров, не запросы страницы
+    "https://ssrjkk.github.io/mobius/",
+    "https://ssrjkk.github.io/mobius/assets/og.png",
 }
 BANNED_HOSTS = (
     "fonts.googleapis.com",
@@ -337,7 +340,7 @@ def test_accepted_copy_is_untouched(html: str) -> None:
     for head in FROZEN_H2:
         assert f"<h2>{head}</h2>" in html, f"заголовок секции '{head}' изменён"
     desc = re.search(r'<meta name="description" content="([^"]+)"', html).group(1)
-    assert "947 тестов" in desc and "Appium 2.x" in desc, "meta description съехал с фактов"
+    assert "950 тестов" in desc and "Appium 2.x" in desc, "meta description съехал с фактов"
 
 
 def test_accepted_structure_is_untouched(html: str) -> None:

@@ -3,8 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mobius — 947 тестов. Две платформы. Один пайплайн.</title>
-<meta name="description" content="Mobius — мобильная автоматизация Android и iOS на Python, Appium 2.x и pytest: 947 тестов, 99% покрытия, экранные объекты, пул устройств, жесты и параллельные запуски.">
+<title>Mobius — 950 тестов. Две платформы. Один пайплайн.</title>
+<meta name="description" content="Mobius — мобильная автоматизация Android и iOS на Python, Appium 2.x и pytest: 950 тестов, 99% покрытия кода, экранные объекты, пул устройств, жесты и параллельные запуски.">
+<link rel="canonical" href="https://ssrjkk.github.io/mobius/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Mobius">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:url" content="https://ssrjkk.github.io/mobius/">
+<meta property="og:title" content="Mobius — 950 тестов. Две платформы. Один пайплайн.">
+<meta property="og:description" content="Мобильная автоматизация Android и iOS на Python, Appium 2.x и pytest: экранные объекты, пул устройств, жесты и параллельные запуски.">
+<meta property="og:image" content="https://ssrjkk.github.io/mobius/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Витрина Mobius: 950 тестов, две платформы, один пайплайн">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Mobius — 950 тестов. Две платформы. Один пайплайн.">
+<meta name="twitter:description" content="Мобильная автоматизация Android и iOS на Python, Appium 2.x и pytest: экранные объекты, пул устройств, жесты и параллельные запуски.">
+<meta name="twitter:image" content="https://ssrjkk.github.io/mobius/assets/og.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230A0F1E'/%3E%3Crect x='7' y='9' width='8' height='14' rx='2.5' fill='%232DD4BF'/%3E%3Crect x='17' y='9' width='8' height='14' rx='2.5' fill='%237DD3FC'/%3E%3C/svg%3E">
 <link rel="preload" href="assets/fonts/manrope-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="assets/fonts/manrope-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
@@ -421,12 +436,12 @@
     <div class="wrap hero-in">
       <div class="status-chips" data-hero aria-label="Статус проекта">
         <span class="chip"><i aria-hidden="true"></i>пул готов</span>
-        <span class="chip"><b>947</b>&nbsp;тестов</span>
-        <span class="chip"><b>99%</b>&nbsp;покрытия экранов</span>
+        <span class="chip"><b>950</b>&nbsp;тестов</span>
+        <span class="chip"><b>99%</b>&nbsp;покрытия кода</span>
         <span class="chip">Appium&nbsp;2.x</span>
       </div>
       <h1 data-hero>
-        <span class="h1-line">947 тестов.</span>
+        <span class="h1-line">950 тестов.</span>
         <span class="h1-line">Две платформы.</span>
         <span class="h1-line">Один пайплайн.</span>
       </h1>
@@ -483,11 +498,11 @@
             </div>
             <div class="tele-row" style="border-bottom:0">
               <div class="lane">
-                <div class="lane-l"><span>поток A · Android</span><span>947/947</span></div>
+                <div class="lane-l"><span>поток A · Android</span><span>950/950</span></div>
                 <div class="lane-bar"><div class="lane-fill"></div></div>
               </div>
               <div class="lane ice">
-                <div class="lane-l"><span>поток B · iOS</span><span>947/947</span></div>
+                <div class="lane-l"><span>поток B · iOS</span><span>950/950</span></div>
                 <div class="lane-bar"><div class="lane-fill"></div></div>
               </div>
             </div>
@@ -502,12 +517,12 @@
   <section class="metrics" aria-label="Ключевые цифры">
     <div class="wrap metrics-grid">
       <div class="mcell reveal">
-        <div class="mnum">947</div>
+        <div class="mnum">950</div>
         <div class="mlabel">тестов в пайплайне</div>
       </div>
       <div class="mcell reveal">
         <div class="mnum ice">99%</div>
-        <div class="mlabel">покрытие экранных объектов</div>
+        <div class="mlabel">покрытие кода тестами</div>
       </div>
       <div class="mcell reveal">
         <div class="mnum">2</div>
@@ -720,6 +735,10 @@
     var gap = quick ? .11 : .4, lead = quick ? .18 : .22;
     var tl = gsap.timeline();
     rows.forEach(function (s, i) {
+      /* Первая строка — в тот же кадр, что и клик: с lead на нулевой позиции
+         замер давал 0 горящих строк через 120 мс после переключения таба,
+         то есть панель выглядела мёртвой. Каденс остальных шагов сохранён. */
+      var at = i === 0 ? 0 : lead + (i - 1) * gap;
       tl.call(function () {
         s.classList.add('lit');
         gsap.fromTo(s, { x: -6 }, {
@@ -730,7 +749,7 @@
           scale: 1, duration: .46, ease: 'back.out(3)',
           overwrite: true, clearProps: 'transform'
         });
-      }, null, lead + i * gap);
+      }, null, at);
     });
   }
 

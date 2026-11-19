@@ -35,8 +35,8 @@ make lint
 
 ## Что внутри
 
-- **947 тестов** — unit, API, wire-protocol; идут ~2 минуты без эмулятора
-- **99% покрытия** — минимум 80% enforced
+- **950 тестов** — unit + API в CI-пайплайне, ~2 минуты без эмулятора; wire-protocol, contract и UI группы идут локально (UI нужен живой Appium-сервер)
+- **99% покрытия кода** — замер 98.58% на CI-прогоне, минимум 80% enforced
 - **Строгая типизация** — mypy + ruff
 - **Security scanning** — bandit SAST + pip-audit на CVE в зависимостях
 - **Параллельный запуск** — pytest-xdist + DevicePool для мульти-девайс тестов

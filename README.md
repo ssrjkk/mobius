@@ -35,8 +35,8 @@ make lint
 
 ## What's Inside
 
-- **947 tests** — unit, API, wire-protocol; run in ~2 minutes without emulator
-- **99% coverage** — enforced at 80% minimum
+- **950 tests** — unit + API in the CI pipeline, ~2 minutes without an emulator; wire-protocol, contract and UI groups run locally (UI needs a live Appium server)
+- **99% code coverage** — 98.58% measured on the CI run, enforced at 80% minimum
 - **Strict typing** — mypy + ruff linting
 - **Security scanning** — bandit SAST + pip-audit for dependency CVEs
 - **Parallel execution** — pytest-xdist + DevicePool for multi-device testing

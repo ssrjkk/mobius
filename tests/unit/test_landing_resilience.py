@@ -195,3 +195,43 @@ def test_anchor_clicks_land_on_the_native_position() -> None:
         f"якоря сажают не туда: {bad}. Ожидалась штатная позиция с учётом "
         f"scroll-margin-top; прогоняли {len(rows)} кликов."
     )
+
+
+def test_demo_tab_lights_first_row_in_the_same_frame() -> None:
+    """Клик по табу обязан зажигать первую строку сразу, а не через lead.
+
+    Промер до правки: через 120 мс после переключения платформы горело 0 из 4
+    строк — панель выглядела мёртвой ровно в момент клика. Первая строка теперь
+    стоит на нулевой позиции таймлайна, каденс остальных сохранён.
+    """
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch()
+        ctx = browser.new_context(viewport={"width": 1440, "height": 900})
+        page = ctx.new_page()
+        page.goto(_url(), wait_until="load")
+        page.wait_for_timeout(2_500)
+        page.locator("#demo").scroll_into_view_if_needed()
+        page.wait_for_timeout(1_200)
+        page.locator('.tab[data-platform="ios"]').click()
+        page.wait_for_timeout(100)
+        early = page.evaluate(
+            "() => document.querySelectorAll('#pane-ios .gstep.lit').length"
+        )
+        page.wait_for_timeout(1_500)
+        settled = page.evaluate(
+            """() => ({lit: document.querySelectorAll('#pane-ios .gstep.lit').length,
+                       total: document.querySelectorAll('#pane-ios .gstep').length,
+                       transforms: [...document.querySelectorAll('#pane-ios .gstep')]
+                         .filter(s => getComputedStyle(s).transform !== 'none').length})"""
+        )
+        ctx.close()
+        browser.close()
+
+    assert early >= 1, (
+        f"через 100 мс после клика по табу горит {early} строк — панель отвечает "
+        f"с задержкой, как до правки (0 из 4 на 120 мс)"
+    )
+    assert settled["lit"] == settled["total"] == 4, f"демо не догорело: {settled}"
+    assert settled["transforms"] == 0, f"на строках остались transform: {settled}"
