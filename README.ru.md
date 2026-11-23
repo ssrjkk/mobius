@@ -167,6 +167,8 @@ pip install -e ".[test]"
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — как контрибьютить
 - **[SECURITY.md](SECURITY.md)** — политика безопасности
 - **[LICENSE](LICENSE)** — MIT
+- [Changelog](CHANGELOG.md)
+- [Showcase](https://ssrjkk.github.io/mobius/showcase/)
 
 ## Автор
 

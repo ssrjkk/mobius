@@ -167,6 +167,8 @@ pip install -e ".[test]"
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — contribution guidelines
 - **[SECURITY.md](SECURITY.md)** — security policy
 - **[LICENSE](LICENSE)** — MIT
+- [Changelog](CHANGELOG.md)
+- [Showcase](https://ssrjkk.github.io/mobius/showcase/)
 
 ## Author
 
