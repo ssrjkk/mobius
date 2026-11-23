@@ -18,6 +18,18 @@
 
 Mobile test automation for Android and iOS built on Appium 2.x and pytest. Provides screen objects, device pooling, gesture helpers, and CI-ready infrastructure for parallel test execution.
 
+**Site:** https://ssrjkk.github.io/mobius/
+
+## Screenshots
+
+Captured from the published site in a real browser (Chrome, 1440×900 and 390×844).
+
+| Home | Sections |
+| --- | --- |
+| <img src="docs/screenshots/home.jpg" width="420" alt="Mobius — landing page"> | <img src="docs/screenshots/content.jpg" width="420" alt="Mobius — site sections"> |
+
+<p align="center"><img src="docs/screenshots/mobile.jpg" width="320" alt="Mobius — mobile view"></p>
+
 ## Quick Start
 
 ```bash
