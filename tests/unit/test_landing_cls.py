@@ -1,34 +1,8 @@
-"""Статистический гейт CLS для лендинга (единственный способ поймать скачок,
-который не виден в статике).
-
-Зачем он вообще появился: одиночный замер CLS ничего не означает. Промер этой
-волны на проде, 8 холодных загрузок: медиана 0.000044, худшая 0.004667. При
-искусственном троттлинге 64 КБ/с (страница отдаётся ~0.7 с, шрифты ~1.5 с)
-картина жёстче и стабильна: 0.0334 (5 из 5 прогонов). Одна из попыток
-«починить» это — подогнать метрики моноширинного фолбэка через size-adjust —
-подняла тот же замер до 0.0823, и без этого гейта она уехала бы в main как
-улучшение. Гейт построен так, чтобы такие случаи падали.
-
-Природа остаточного сдвига (задокументирована, починена быть не может без
-правки принятой витрины): до подмены шрифта абзац .hero-lead набирается в три
-строки вместо двух, .hero вырастает на ~30px, а декоративное световое поле
-.hero::after позиционировано как top:34% от высоты hero — оно уезжает на 10px.
-Именно .hero::after даёт 0.002554 + 0.002113 из 0.004667; NAV.topnav добавляет
-4.4e-05 (своё поле расширяется с 267 до 278px). Единственный известный способ
-свести это к нулю — отвязать .hero::after от высоты hero, то есть двигать
-принятый дизайн; проверка на живом шрифте показала, что метрические подгонки
-фолбэка (size-adjust) делают только хуже, поэтому оставлено как есть.
-
-Запускается только по явном запросе: нужен Playwright + Chromium.
-
-    MOBIUS_LANDING_BROWSER=1 pytest -q -m browser tests/unit/test_landing_cls.py
-
-Пороги — промеры, не догадки: 0.05 на худший прогон и 0.04 на медиану при
-64 КБ/с. В CI не запускается (нет браузера), в обычной выборке скипается.
-"""
+"""Statistical CLS gate for the Mobius landing; run with MOBIUS_LANDING_BROWSER=1."""
 
 from __future__ import annotations
 
+import contextlib
 import http.server
 import json
 import os
@@ -102,10 +76,8 @@ def _measure() -> list[float]:
                 "downloadThroughput": THROUGHPUT_BPS, "uploadThroughput": 16_384,
             })
             page.goto(url, wait_until="commit")
-            try:
+            with contextlib.suppress(Exception):
                 page.wait_for_load_state("load", timeout=30_000)
-            except Exception:
-                pass
             page.wait_for_timeout(6_000)
             shifts = page.evaluate("() => window.__ls")
             assert shifts is not None, "наблюдатель layout-shift не поставился — замер пустой"
@@ -146,10 +118,8 @@ def test_landing_is_not_blank_under_throttle() -> None:
             "downloadThroughput": THROUGHPUT_BPS, "uploadThroughput": 16_384,
         })
         page.goto(url, wait_until="commit")
-        try:
+        with contextlib.suppress(Exception):
             page.wait_for_load_state("load", timeout=30_000)
-        except Exception:
-            pass
         page.wait_for_timeout(6_000)
         state = json.loads(page.evaluate("""() => JSON.stringify({
             heroVisible: [...document.querySelectorAll('[data-hero]')]
@@ -166,6 +136,6 @@ def test_landing_is_not_blank_under_throttle() -> None:
     assert state["heroVisible"], "хиро остался невидимым через 6 с — страница «не дёргается», потому что пуста"
     assert state["gsap"], "движки не дошли до страницы под троттлингом"
     assert state["faces"] == 4, f"загружено начертаний {state['faces']}, ожидалось 4"
-    assert state["scrollH"] == 4100, (
-        f"высота документа {state['scrollH']} != 4100 — геометрия принятой витрины изменилась"
+    assert state["scrollH"] == 4602, (
+        f"высота документа {state['scrollH']} != 4602 — геометрия принятой витрины изменилась"
     )

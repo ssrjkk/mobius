@@ -47,7 +47,7 @@ make lint
 
 ## Что внутри
 
-- **950 тестов** — unit + API в CI-пайплайне, ~2 минуты без эмулятора; wire-protocol, contract и UI группы идут локально (UI нужен живой Appium-сервер)
+- **951 тестов** — unit + API в CI-пайплайне, ~2 минуты без эмулятора; wire-protocol, contract и UI группы идут локально (UI нужен живой Appium-сервер)
 - **99% покрытия кода** — замер 98.58% на CI-прогоне, минимум 80% enforced
 - **Строгая типизация** — mypy + ruff
 - **Security scanning** — bandit SAST + pip-audit на CVE в зависимостях

@@ -61,19 +61,13 @@ def _printed_counts(html: str) -> dict[str, int]:
     spots = {
         "title": re.search(r"<title>Mobius — (\d+) тестов\.", html),
         "description": re.search(r'<meta name="description" content="[^"]*?(\d+) тестов', html),
-        "chip": re.search(r"<b>(\d+)</b>&nbsp;тестов", html),
-        "h1": re.search(r'<span class="h1-line">(\d+) тестов\.</span>', html),
-        "mnum": re.search(r'<div class="mnum">(\d+)</div>', html),
+        "metric": re.search(r'<div class="mnum" data-ci-count="(\d+)">', html),
     }
     out = {}
-    for name, m in spots.items():
-        assert m, f"на витрине не нашлось места цифры: {name}"
-        out[name] = int(m.group(1))
-    lanes = re.findall(r"<span>(\d+)/(\d+)</span>", html)
-    assert len(lanes) == 2, f"полос потоков должно быть две, найдено {len(lanes)}"
-    for i, (a, b) in enumerate(lanes):
-        assert a == b, f"поток {i}: числитель и знаменатель разошлись"
-        out[f"lane{i}"] = int(a)
+    for name, match in spots.items():
+        assert match, f"на витрине не нашлось места цифры: {name}"
+        out[name] = int(match.group(1))
+    assert html.count(f">{out['metric']}<") == 1, "CI-число должно встречаться в видимом теле ровно один раз"
     return out
 
 
@@ -84,7 +78,7 @@ def test_printed_test_count_equals_ci_collection(html: str) -> None:
     assert not bad, (
         f"витрина печатает {printed}, а CI-команда собирает {collected} тестов. "
         f"Расхождение: {bad}. Обнови цифры в docs/index.html (title, description, "
-        f"chip, h1, полосы потоков, mnum) и FROZEN_* в test_landing_motion_layer.py."
+        f"metric) и FROZEN_* в test_landing_motion_layer.py."
     )
 
 
@@ -102,11 +96,27 @@ def test_readmes_print_the_same_ci_count() -> None:
 
 
 def test_coverage_claim_is_code_and_labelled_as_code(html: str) -> None:
-    assert "<b>99%</b>&nbsp;покрытия кода" in html, "chip покрытия потерял слово «кода»"
+    assert '<div class="mnum">99%</div>' in html, "метрика покрытия потеряла значение"
     assert '<div class="mlabel">покрытие кода тестами</div>' in html, (
         "подпись метрики снова обещает покрытие экранов — у него нет знаменателя"
     )
     assert "покрытия экранов" not in html and "покрытие экранных объектов" not in html
+
+
+def test_runboard_uses_real_ci_test_nodes(html: str) -> None:
+    nodes = {
+        "tests/unit/test_device_pool.py": [
+            "test_register_returns_device",
+            "test_len_reflects_registered_count",
+        ],
+        "tests/unit/test_capabilities.py": ["test_ios_bundle"],
+        "tests/unit/test_gestures.py": ["test_direction"],
+    }
+    for path, names in nodes.items():
+        source = (ROOT / path).read_text(encoding="utf-8")
+        for name in names:
+            assert f"def {name}(" in source, f"{path}: нет реального теста {name}"
+            assert name in html, f"runboard выдумал test node {name}"
 
 
 def test_sharing_metadata_is_complete_and_consistent(html: str) -> None:

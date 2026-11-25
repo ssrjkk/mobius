@@ -144,8 +144,8 @@ def test_page_is_readable_without_a_vendor_bundle(name: str) -> None:
         f"{name}: {hidden['count']} элементов остались погашенными, примеры {hidden['sample']}. "
         f"Класс .anim снят: {not state['anim']}"
     )
-    assert state["scrollH"] == 4100, (
-        f"{name}: высота документа {state['scrollH']} != 4100 — без бандла геометрия поехала"
+    assert state["scrollH"] == 4602, (
+        f"{name}: высота документа {state['scrollH']} != 4602 — без бандла геометрия поехала"
     )
 
 

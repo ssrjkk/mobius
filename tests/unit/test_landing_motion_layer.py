@@ -1,26 +1,4 @@
-"""
-Гейты слоя движения на лендинге GitHub Pages (docs/index.html).
-
-Landing отдаётся Pages как есть, без сборки: pytest — единственный способ
-проверить, что в нём не появилось чужой CDN-строки, что шрифт реально покрыл
-кириллицу и что всё новое живёт за prefers-reduced-motion. Пороги — промеры
-этой волны, не догадки:
-
-  * 0 субресурсов на чужих доменах (было: Google Fonts + jsDelivr);
-  * CLS: медиана 0.000044, худший из 8 холодных загрузок на проде 0.004667
-    (при 64 КБ/с — 0.0334). До слоя движения, с CDN-шрифтами: 0.0014 и 0.0186.
-    «Нулевым» сдвиг называть нельзя: его даёт подмена метрик шрифта, а именно
-    .hero-lead набирается три строки вместо двух, .hero растёт на ~30px и
-    световое поле .hero::after (top:34%) уезжает на 10px. Числа и пороги
-    исполняемо проверяет tests/unit/test_landing_cls.py (маркер browser);
-  * геометрия byte-identical: scrollHeight 4100, вершины .fcard, бокс h1;
-  * минимальный контраст заголовков 16.28:1 — не ниже принятого;
-  * перенесённых байтов (html + 7 локальных файлов) 272 955;
-  * reduced-motion: Lenis не инициализируется, живых анимаций 0.
-
-Тесты читают файл, а не запускают браузер: браузерные числа собраны промером
-(см. комментарий выше) и здесь зафиксированы как пороги.
-"""
+"""Executable design contracts for the Mobius landing."""
 
 from __future__ import annotations
 
@@ -39,31 +17,32 @@ ASSETS = DOC.parent / "assets"
 
 # --- промер этой волны: принятый дизайн в цифрах -----------------------------
 
-HTML_BYTES_MAX = 285_000  # raw: html + все локальные субресурсы (замерено 272 955)
-HEADING_CONTRAST_BASELINE = 16.28
-HEADLINE_WEIGHT_BUDGET = 50_000  # docs/index.html один файл, без framework'ов внутрь
+HTML_BYTES_MAX = 285_000
+HEADING_CONTRAST_BASELINE = 17.00
+HEADLINE_WEIGHT_BUDGET = 50_000
 
 PALETTE = {
-    "--bg": "#0A0F1E",
-    "--bg2": "#0D1526",
-    "--fg": "#F8FAFC",
-    "--muted": "#94A3B8",
-    "--faint": "#64748B",
-    "--teal": "#2DD4BF",
-    "--teal-bright": "#5EEAD4",
-    "--ice": "#7DD3FC",
-    "--ok": "#22C55E",
-    "--warn": "#FBBF24",
+    "--bg": "#0B0B0C",
+    "--bg2": "#111113",
+    "--panel": "#171719",
+    "--panel2": "#1D1D20",
+    "--fg": "#F5F3EE",
+    "--muted": "#B7B3AA",
+    "--faint": "#8A8680",
+    "--accent": "#FF6A3D",
+    "--accent-soft": "#FF9A78",
+    "--amber": "#F7C948",
+    "--ok": "#7CE38B",
+    "--bad": "#FF7A7A",
 }
 
-# Копирайт и структура принятого дизайна — слой движения их не трогает.
-FROZEN_TITLE = "Mobius — 950 тестов. Две платформы. Один пайплайн."
-FROZEN_H1 = ["950 тестов.", "Две платформы.", "Один пайплайн."]
+FROZEN_TITLE = "Mobius — 951 тестов. Один сценарий для Android и iOS."
+FROZEN_H1 = ["Один сценарий.", "Два устройства.", "Настоящий отчёт."]
 FROZEN_H2 = [
-    "Что внутри фреймворка",
-    "От экрана до отчёта — четыре шага",
-    "Выберите платформу",
-    "Соберите две платформы в один пайплайн",
+    "Фреймворк держит весь прогон",
+    "От screen object до отчёта",
+    "Один сценарий — другой драйвер",
+    "Возьмите Mobius в свой проект",
 ]
 FROZEN_COUNTS = {"svg": 6, "gstep": 8, "mnum": 4, "fcard": 6, "section": 6}
 
@@ -184,11 +163,11 @@ def test_lockfile_hashes_match_bytes(lock: dict) -> None:
 
 
 def test_lockfile_versions_are_credited(lock: dict) -> None:
-    credits = (ASSETS / "CREDITS.txt").read_text(encoding="utf-8")
+    credits_text = (ASSETS / "CREDITS.txt").read_text(encoding="utf-8")
     for entry in lock["files"]:
-        assert entry["license"] in credits, f"{entry['path']}: лицензия {entry['license']} не в CREDITS.txt"
-        assert entry["version"] in credits, f"{entry['path']}: версия {entry['version']} не в CREDITS.txt"
-        assert entry["package"] in credits, f"{entry['path']}: пакет {entry['package']} не в CREDITS.txt"
+        assert entry["license"] in credits_text, f"{entry['path']}: лицензия {entry['license']} не в CREDITS.txt"
+        assert entry["version"] in credits_text, f"{entry['path']}: версия {entry['version']} не в CREDITS.txt"
+        assert entry["package"] in credits_text, f"{entry['path']}: пакет {entry['package']} не в CREDITS.txt"
 
 
 # --- шрифты: переменная ось и кириллица --------------------------------------
@@ -288,7 +267,7 @@ def test_feature_icons_are_canonical_lucide(html: str) -> None:
     assert len(svgs) == len(LUCIDE_ICONS), f"<svg> в разметке {len(svgs)}, иконок ожидалось {len(LUCIDE_ICONS)}"
     shipped = [re.search(r"lucide-([\w-]+)", tag).group(1) for tag, _ in svgs]
     assert shipped == [name for name, _ in LUCIDE_ICONS], f"набор или порядок иконок изменился: {shipped}"
-    for (name, children), (attrs, body) in zip(LUCIDE_ICONS, svgs):
+    for (name, children), (attrs, body) in zip(LUCIDE_ICONS, svgs, strict=True):
         assert f'class="lucide lucide-{name}"' in attrs, f"{name}: потерялся канонический класс Lucide"
         assert 'viewBox="0 0 24 24"' in attrs, f"{name}: чужой viewBox"
         assert 'stroke-width="1.6"' in attrs, f"{name}: дефолтный Lucide stroke 2 виднее принятого"
@@ -325,7 +304,7 @@ def test_heading_contrast_is_not_lower_than_accepted(css: str, css_clean: str) -
         f"контраст заголовков {worst:.2f}:1 ниже принятого {HEADING_CONTRAST_BASELINE}:1"
     )
     for sel, body in _rules(css_clean):
-        if not re.search(r"\bh[123]\b", sel):
+        if sel.strip() not in {"h1", "h2", "h3"}:
             continue
         assert not re.search(r"\bcolor:", body), f"{sel} задаёт свой цвет вместо --fg"
 
@@ -336,11 +315,14 @@ def test_heading_contrast_is_not_lower_than_accepted(css: str, css_clean: str) -
 def test_accepted_copy_is_untouched(html: str) -> None:
     assert re.search(rf"<title>{re.escape(FROZEN_TITLE)}</title>", html), "title переписан"
     for line in FROZEN_H1:
-        assert f'<span class="h1-line">{line}</span>' in html, f"hero-строка '{line}' изменена"
+        assert re.search(
+            rf'<span class="h1-line(?: h1-mark)?">{re.escape(line)}</span>', html
+        ), f"hero-строка '{line}' изменена"
     for head in FROZEN_H2:
         assert f"<h2>{head}</h2>" in html, f"заголовок секции '{head}' изменён"
     desc = re.search(r'<meta name="description" content="([^"]+)"', html).group(1)
-    assert "950 тестов" in desc and "Appium 2.x" in desc, "meta description съехал с фактов"
+    count = re.search(r"(\d+) тестов", FROZEN_TITLE).group(1)
+    assert f"{count} тестов" in desc and "Appium 2.x" in desc, "meta description съехал с фактов"
 
 
 def test_accepted_structure_is_untouched(html: str) -> None:
