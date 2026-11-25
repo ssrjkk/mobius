@@ -2,24 +2,24 @@
   "note": "docs/index.html отдаётся GitHub Pages как есть, без сборки: эти файлы и есть сборка.",
   "files": [
     {
-      "path": "fonts/manrope-latin-wght-normal.woff2",
-      "package": "@fontsource-variable/manrope",
+      "path": "fonts/golos-text-latin-wght-normal.woff2",
+      "package": "@fontsource-variable/golos-text",
       "version": "5.3.0",
-      "upstream_path": "files/manrope-latin-wght-normal.woff2",
+      "upstream_path": "files/golos-text-latin-wght-normal.woff2",
       "license": "SIL OFL 1.1",
-      "purpose": "Manrope Variable 200-800, latin",
-      "bytes": 24836,
-      "sha256": "a30ddcd349703aff7464c34bef3fffdff405ee50c113440d7c8693c02d210972"
+      "purpose": "Golos Text Variable 400-900, latin",
+      "bytes": 37916,
+      "sha256": "9a69d0aa4734c4022224c002a3d944a702e0204972a49d892789f5668b922c2a"
     },
     {
-      "path": "fonts/manrope-cyrillic-wght-normal.woff2",
-      "package": "@fontsource-variable/manrope",
+      "path": "fonts/golos-text-cyrillic-wght-normal.woff2",
+      "package": "@fontsource-variable/golos-text",
       "version": "5.3.0",
-      "upstream_path": "files/manrope-cyrillic-wght-normal.woff2",
+      "upstream_path": "files/golos-text-cyrillic-wght-normal.woff2",
       "license": "SIL OFL 1.1",
-      "purpose": "Manrope Variable 200-800, cyrillic",
-      "bytes": 14500,
-      "sha256": "c268b459a9329e59fecf39a17618efd44c71735532048d60b12aab76a8c14914"
+      "purpose": "Golos Text Variable 400-900, cyrillic",
+      "bytes": 22032,
+      "sha256": "17d048ca05cb1218af3c0d6dcdf882989e6d1cc5dcb598ea50eaf54850ff7229"
     },
     {
       "path": "fonts/jetbrains-mono-latin-wght-normal.woff2",
