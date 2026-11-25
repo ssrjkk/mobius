@@ -106,11 +106,11 @@ def test_coverage_claim_is_code_and_labelled_as_code(html: str) -> None:
 def test_runboard_uses_real_ci_test_nodes(html: str) -> None:
     nodes = {
         "tests/unit/test_device_pool.py": [
-            "test_no_collisions_with_many_devices",
-            "test_different_workers_get_different_devices",
+            "test_register_returns_device",
+            "test_len_reflects_registered_count",
         ],
         "tests/unit/test_capabilities.py": ["test_ios_bundle"],
-        "tests/unit/test_gestures.py": ["test_swipe_to_element_succeeds_after_retries"],
+        "tests/unit/test_gestures.py": ["test_direction"],
     }
     for path, names in nodes.items():
         source = (ROOT / path).read_text(encoding="utf-8")

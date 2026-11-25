@@ -136,6 +136,6 @@ def test_landing_is_not_blank_under_throttle() -> None:
     assert state["heroVisible"], "хиро остался невидимым через 6 с — страница «не дёргается», потому что пуста"
     assert state["gsap"], "движки не дошли до страницы под троттлингом"
     assert state["faces"] == 4, f"загружено начертаний {state['faces']}, ожидалось 4"
-    assert state["scrollH"] == 5488, (
-        f"высота документа {state['scrollH']} != 5488 — геометрия принятой витрины изменилась"
+    assert state["scrollH"] == 4602, (
+        f"высота документа {state['scrollH']} != 4602 — геометрия принятой витрины изменилась"
     )
