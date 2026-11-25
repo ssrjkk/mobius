@@ -1,5 +1,5 @@
 Шрифты (assets/fonts/, SIL OFL 1.1) — переменные начертания, subsets latin + cyrillic:
-  Manrope Variable 200–800  @fontsource-variable/manrope@5.3.0 (файлы 200 800, axis wght)
+  Golos Text Variable 400–900  @fontsource-variable/golos-text@5.3.0 (файлы 400 900, axis wght)
   JetBrains Mono Variable 100–800  @fontsource-variable/jetbrains-mono@5.3.0
 Семейства те же, что страницы просили у Google Fonts раньше; теперь файлы лежат здесь,
 и кириллица в заголовках и подписях печатается ими, а не системным fallback.

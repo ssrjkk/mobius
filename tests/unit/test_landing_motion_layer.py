@@ -184,7 +184,7 @@ def test_font_faces_declare_variable_axis(css: str) -> None:
         axes.setdefault(family, set()).add(weight.group(0))
         assert "font-display:swap" in face.replace(" ", ""), f"{family}: нет font-display:swap"
         assert "format('woff2')" in face, f"{family}: не woff2"
-    assert axes == {"Manrope": {"font-weight:200 800"}, "JetBrains Mono": {"font-weight:100 800"}}
+    assert axes == {"Golos Text": {"font-weight:400 900"}, "JetBrains Mono": {"font-weight:100 800"}}
 
 
 def test_cyrillic_is_covered_by_a_shipped_file(css: str, html: str) -> None:
@@ -212,7 +212,7 @@ def test_declared_families_are_the_ones_css_uses(css_clean: str) -> None:
     """
     faces = set(re.findall(r"@font-face\s*\{[^}]*font-family:'([^']+)'", css_clean))
     tokens = set(re.findall(r"--(?:sans|mono):'([^']+)'", css_clean))
-    assert faces == tokens == {"Manrope", "JetBrains Mono"}
+    assert faces == tokens == {"Golos Text", "JetBrains Mono"}
     for token in ("--sans", "--mono"):
         assert f"var({token})" in css_clean, f"переменная {token} нигде не применяется"
 
