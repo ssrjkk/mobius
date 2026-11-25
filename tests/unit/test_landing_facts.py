@@ -67,7 +67,7 @@ def _printed_counts(html: str) -> dict[str, int]:
     for name, match in spots.items():
         assert match, f"на витрине не нашлось места цифры: {name}"
         out[name] = int(match.group(1))
-    assert html.count(">950<") == 1, "950 должна встречаться в видимом теле ровно один раз"
+    assert html.count(f">{out['metric']}<") == 1, "CI-число должно встречаться в видимом теле ровно один раз"
     return out
 
 

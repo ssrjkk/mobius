@@ -47,7 +47,7 @@ make lint
 
 ## What's Inside
 
-- **950 tests** — unit + API in the CI pipeline, ~2 minutes without an emulator; wire-protocol, contract and UI groups run locally (UI needs a live Appium server)
+- **951 tests** — unit + API in the CI pipeline, ~2 minutes without an emulator; wire-protocol, contract and UI groups run locally (UI needs a live Appium server)
 - **99% code coverage** — 98.58% measured on the CI run, enforced at 80% minimum
 - **Strict typing** — mypy + ruff linting
 - **Security scanning** — bandit SAST + pip-audit for dependency CVEs

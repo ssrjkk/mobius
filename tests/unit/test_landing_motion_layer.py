@@ -36,7 +36,7 @@ PALETTE = {
     "--bad": "#FF7A7A",
 }
 
-FROZEN_TITLE = "Mobius — 950 тестов. Один сценарий для Android и iOS."
+FROZEN_TITLE = "Mobius — 951 тестов. Один сценарий для Android и iOS."
 FROZEN_H1 = ["Один сценарий.", "Два устройства.", "Настоящий отчёт."]
 FROZEN_H2 = [
     "Фреймворк держит весь прогон",
@@ -321,7 +321,8 @@ def test_accepted_copy_is_untouched(html: str) -> None:
     for head in FROZEN_H2:
         assert f"<h2>{head}</h2>" in html, f"заголовок секции '{head}' изменён"
     desc = re.search(r'<meta name="description" content="([^"]+)"', html).group(1)
-    assert "950 тестов" in desc and "Appium 2.x" in desc, "meta description съехал с фактов"
+    count = re.search(r"(\d+) тестов", FROZEN_TITLE).group(1)
+    assert f"{count} тестов" in desc and "Appium 2.x" in desc, "meta description съехал с фактов"
 
 
 def test_accepted_structure_is_untouched(html: str) -> None:
