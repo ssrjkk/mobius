@@ -168,7 +168,6 @@ pip install -e ".[test]"
 - **[SECURITY.md](SECURITY.md)** — политика безопасности
 - **[LICENSE](LICENSE)** — MIT
 - [Changelog](CHANGELOG.md)
-- [Showcase](https://ssrjkk.github.io/mobius/showcase/)
 
 ## Автор
 
