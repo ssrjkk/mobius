@@ -21,6 +21,9 @@ jobs:
   test:
     name: Test & Lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     timeout-minutes: 15
 
     steps:
@@ -63,10 +66,10 @@ jobs:
       - name: Upload coverage
         uses: codecov/codecov-action@v7
         with:
+          use_oidc: true
           files: reports/coverage.xml
           flags: unittests
-          fail_ci_if_error: false
-        continue-on-error: true
+          fail_ci_if_error: true
 
       - name: Upload test results
         uses: actions/upload-artifact@v7
