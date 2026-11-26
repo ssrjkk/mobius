@@ -174,3 +174,17 @@ pip install -e ".[test]"
 
 **Sergey Sitnikov**
 GitHub: [@ssrjkk](https://github.com/ssrjkk)
+
+## Установка
+
+```bash
+git clone https://github.com/ssrjkk/mobius.git
+cd mobius
+pip install -r requirements.txt
+```
+
+## Использование
+
+```bash
+python main.py
+```
