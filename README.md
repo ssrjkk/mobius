@@ -1,20 +1,20 @@
 
 # Mobius
 
-<p align="center">
+
   <a href="https://github.com/ssrjkk/mobius/actions/workflows/ci.yml">
-    <img src="https://github.com/ssrjkk/mobius/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
+    
   </a>
   <a href="https://www.python.org/downloads/">
-    <img src="https://img.shields.io/badge/python-3.12-blue.svg" alt="Python 3.12" />
+    
   </a>
   <a href="https://appium.io/">
-    <img src="https://img.shields.io/badge/Appium-2.x-green.svg" alt="Appium 2.x" />
+    
   </a>
   <a href="README.ru.md">
-    <img src="https://img.shields.io/badge/lang-ru-red.svg" alt="Русская версия" />
+    
   </a>
-</p>
+
 
 Mobile test automation for Android and iOS built on Appium 2.x and pytest. Provides screen objects, device pooling, gesture helpers, and CI-ready infrastructure for parallel test execution.
 
